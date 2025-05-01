@@ -1,0 +1,4301 @@
+assign1: sql input in c:
+
+a:
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+#define MAX_TOKENS 100
+#define MAX_TOKEN_LEN 50
+
+typedef enum {
+    KEYWORD, IDENTIFIER, OPERATOR, STRING_LITERAL,
+    NUMERIC_LITERAL, DELIMITER, UNKNOWN
+} TokenType;
+
+const char *TOKEN_NAMES[] = {
+    "KEYWORD", "IDENTIFIER", "OPERATOR", "STRING_LITERAL",
+    "NUMERIC_LITERAL", "DELIMITER", "UNKNOWN"
+};
+
+const char *KEYWORDS[] = {"SELECT", "INSERT", "INTO", "VALUES", "FROM", "WHERE"};
+#define NUM_KEYWORDS (sizeof(KEYWORDS) / sizeof(KEYWORDS[0]))
+
+typedef struct {
+    char value[MAX_TOKEN_LEN];
+    TokenType type;
+} Token;
+
+int is_keyword(const char *word) {
+    for (int i = 0; i < NUM_KEYWORDS; i++) {
+        if (strcasecmp(word, KEYWORDS[i]) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int is_operator(char ch) {
+    return (ch == '=' || ch == '<' || ch == '>' || ch == '!');
+}
+
+int is_delimiter(char ch) {
+    return (ch == '(' || ch == ')' || ch == ',' || ch == ';');
+}
+
+void tokenize(const char *code, Token tokens[], int *token_count) {
+    int i = 0, j = 0;
+    char buffer[MAX_TOKEN_LEN];
+    *token_count = 0;
+    
+    while (code[i] != '\0') {
+        if (isspace(code[i])) {
+            i++;
+            continue;
+        }
+        
+        if (isalpha(code[i]) || code[i] == '_') {
+            j = 0;
+            while (isalnum(code[i]) || code[i] == '_') {
+                buffer[j++] = code[i++];
+            }
+            buffer[j] = '\0';
+            strcpy(tokens[*token_count].value, buffer);
+            tokens[*token_count].type = is_keyword(buffer) ? KEYWORD : IDENTIFIER;
+        } else if (isdigit(code[i])) {
+            j = 0;
+            while (isdigit(code[i])) {
+                buffer[j++] = code[i++];
+            }
+            buffer[j] = '\0';
+            strcpy(tokens[*token_count].value, buffer);
+            tokens[*token_count].type = NUMERIC_LITERAL;
+        } else if (code[i] == '"' || code[i] == '\'') {
+            char quote = code[i];
+            j = 0;
+            buffer[j++] = code[i++];
+            while (code[i] != quote && code[i] != '\0') {
+                buffer[j++] = code[i++];
+            }
+            buffer[j++] = code[i++];
+            buffer[j] = '\0';
+            strcpy(tokens[*token_count].value, buffer);
+            tokens[*token_count].type = STRING_LITERAL;
+        } else if (is_operator(code[i])) {
+            j = 0;
+            while (is_operator(code[i])) {
+                buffer[j++] = code[i++];
+            }
+            buffer[j] = '\0';
+            strcpy(tokens[*token_count].value, buffer);
+            tokens[*token_count].type = OPERATOR;
+        } else if (is_delimiter(code[i])) {
+            buffer[0] = code[i++];
+            buffer[1] = '\0';
+            strcpy(tokens[*token_count].value, buffer);
+            tokens[*token_count].type = DELIMITER;
+        } else {
+            buffer[0] = code[i++];
+            buffer[1] = '\0';
+            strcpy(tokens[*token_count].value, buffer);
+            tokens[*token_count].type = UNKNOWN;
+        }
+        (*token_count)++;
+    }
+}
+
+void print_tokens(Token tokens[], int token_count) {
+    printf("%-15s %-15s\n", "Value", "Kind");
+    printf("---------------------------------\n");
+    for (int i = 0; i < token_count; i++) {
+        printf("%-15s %-15s\n", tokens[i].value, TOKEN_NAMES[tokens[i].type]);
+    }
+    printf("\nTotal Tokens: %d\n", token_count);
+}
+
+int main() {
+    const char *sql_code =
+        "SELECT name, age FROM users WHERE age > 18;\n"
+        "INSERT INTO users (name, age) VALUES ('Amol', 25);";
+    
+    Token tokens[MAX_TOKENS];
+    int token_count;
+    
+    tokenize(sql_code, tokens, &token_count);
+    print_tokens(tokens, token_count);
+    
+    return 0;
+}
+
+
+
+
+assign2: tokenization c input:
+
+lexer.l:
+
+%{
+#include <stdio.h>
+#include <stdlib.h>
+
+int line_no = 1; // Line number tracker
+%}
+
+identifier [a-zA-Z_][a-zA-Z0-9_]*
+
+%%
+
+\n {
+    line_no++; // Increment line number on new line
+}
+
+#.* {
+    printf("%d\t%s\tPreprocessor Directive\t%s\n", line_no, yytext, yytext);
+}
+
+int|float|char|double|while|do|if|break|continue|void|switch|return|else|goto {
+    printf("%d\t%s\tKeyword\t%s\n", line_no, yytext, yytext);
+}
+
+{identifier}\( {
+    printf("%d\t%s\tFunction\t%s\n", line_no, yytext, yytext);
+}
+
+\{ {
+    printf("%d\t%s\tBlock Begin\t%s\n", line_no, yytext, yytext);
+}
+
+\} {
+    printf("%d\t%s\tBlock End\t%s\n", line_no, yytext, yytext);
+}
+
+{identifier}\[[0-9]+\] {
+    printf("%d\t%s\tIdentifier\t%s\n", line_no, yytext, yytext);
+}
+
+{identifier} {
+    printf("%d\t%s\tIdentifier\t%s\n", line_no, yytext, yytext);
+}
+
+\".*\" {
+    printf("%d\t%s\tString\t%s\n", line_no, yytext, yytext);
+}
+
+[0-9]+ {
+    printf("%d\t%s\tNumber\t%s\n", line_no, yytext, yytext);
+}
+
+\<=|\>=|\<|\>|\== {
+    printf("%d\t%s\tRelational Operator\t%s\n", line_no, yytext, yytext);
+}
+
+\=|\+|\-|\*|\/|\&|\||\^|% {
+    printf("%d\t%s\tOperator\t%s\n", line_no, yytext, yytext);
+}
+
+.|\n ;  // Ignore unmatched characters
+
+%%
+
+int main(int argc, char **argv) {
+    FILE *file;
+    file = fopen("input.c", "r");
+    if (!file) {
+        printf("Could not open the file!!!\n");
+        exit(0);
+    }
+
+    // Print the header
+    printf("Line no\tLexeme\tToken\tToken- Value\n");
+
+    yyin = file;
+    yylex();
+    return 0;
+}
+
+int yywrap() {
+    return 1;
+}
+
+
+input.c:
+
+#include<stdio.h>
+int main(){
+    int a=3;
+    int b=4;
+    
+    char c=a+b;
+
+} 
+or
+#include <stdio.h>  
+
+int main() {
+    printf("Numbers!\n");  
+    int a = 5;  
+    float b = 7; 
+                       
+    char c = a+b ;
+    
+    int result = a ^ b;
+ 
+}
+
+
+
+with error detection:
+%{
+#include <stdio.h> #include <stdlib.h> #include <string.h>
+
+typedef struct SymTabEntry { int line_num;
+ 
+char lexeme[100]; char token[20]; int token_value;
+struct SymTabEntry *next;
+} SymTabEntry;
+
+
+SymTabEntry *symtab = NULL; int line_num = 1;
+int brace_count = 0;
+int skip_until_newline = 0;
+
+void add_to_symtab(int line, const char *lexeme, const char *token, int value); void print_symtab();
+void handle_error(const char *msg); void unterminated_string_error(); void unclosed_brace_error();
+
+%}
+
+
+DELIMITER [;(),{}[\]]
+OPERATOR "+"|"-"|"*"|"/"|"="|"=="|"!="|"<"|">"|"<="|">=" KEYWORD
+"int"|"float"|"double"|"char"|"if"|"else"|"while"|"for"|"return"|"void"|"prin tf"
+IDENTIFIER [a-zA-Z_][a-zA-Z0-9_]* INTEGER [0-9]+
+FLOAT	[0-9]+\.[0-9]+
+ 
+%%
+
+
+^#.*	{ /* Skip preprocessor directives entirely */ }
+
+{KEYWORD}	{
+int value;
+if (strcmp(yytext, "int") == 0) value = 1;
+else if (strcmp(yytext, "float") == 0) value = 2;
+else if (strcmp(yytext, "double") == 0) value = 3; else if (strcmp(yytext, "char") == 0) value = 4;
+else if (strcmp(yytext, "if") == 0) value = 5;
+else if (strcmp(yytext, "else") == 0) value = 6; else if (strcmp(yytext, "while") == 0) value = 7; else if (strcmp(yytext, "for") == 0) value = 8;
+else if (strcmp(yytext, "return") == 0) value = 9; else if (strcmp(yytext, "void") == 0) value = 10; else if (strcmp(yytext, "printf") == 0) value = 11; else if (strcmp(yytext, "main") == 0) value = 12;
+add_to_symtab(line_num, yytext, "KEYWORD", value);
+}
+
+
+{IDENTIFIER}	{ add_to_symtab(line_num, yytext, "IDENTIFIER", 1); }
+
+{OPERATOR}	{
+int value;
+if (strcmp(yytext, "+") == 0) value = 1;
+ 
+else if (strcmp(yytext, "-") == 0) value = 2; else if (strcmp(yytext, "*") == 0) value = 3; else if (strcmp(yytext, "/") == 0) value = 4; else if (strcmp(yytext, "=") == 0) value = 5; else if (strcmp(yytext, "==") == 0) value = 6; else if (strcmp(yytext, "!=") == 0) value = 7; else if (strcmp(yytext, "<") == 0) value = 8; else if (strcmp(yytext, ">") == 0) value = 9;
+else if (strcmp(yytext, "<=") == 0) value = 10;
+add_to_symtab(line_num, yytext, "OPERATOR", value);
+}
+
+{DELIMITER}	{
+int value;
+if (strcmp(yytext, ";") == 0) value = 1;
+else if (strcmp(yytext, "(") == 0) value = 2; else if (strcmp(yytext, ")") == 0) value = 3;
+else if (strcmp(yytext, "{") == 0) { value = 4; brace_count++; } else if (strcmp(yytext, "}") == 0) { value = 5; brace_count--; } else if (strcmp(yytext, "[") == 0) value = 6;
+else if (strcmp(yytext, "]") == 0) value = 7;
+add_to_symtab(line_num, yytext, "DELIMITER", value);
+}
+
+
+{INTEGER}	{ add_to_symtab(line_num, yytext, "CONSTANT", 1); }
+{FLOAT}	{ add_to_symtab(line_num, yytext, "CONSTANT", 2); }
+ 
+\"([^\"\n]*)\" {
+char content[100];
+strncpy(content, yytext+1, strlen(yytext)-2); content[strlen(yytext)-2] = '\0';
+add_to_symtab(line_num, content, "CONSTANT", 3);
+}
+
+
+\"[^\"\n]*\n { unterminated_string_error(); }
+
+
+"/*"	{
+char c;
+while ((c = input()) != 0) { if (c == '*') {
+if ((c = input()) == '/') break; else unput(c);
+}
+if (c == '\n') line_num++;
+}
+}
+"//".*		{ /* Skip single-line comments / } [ \t]+	{ / Ignore whitespace */ }
+\n	{ line_num++; }
+
+
+.	{ handle_error("Invalid character"); }
+ 
+%%
+
+void add_to_symtab(int line, const char *lexeme, const char *token, int value) {
+// Check if this exact token already exists on the same line SymTabEntry *current = symtab;
+while (current != NULL) {
+if (current->line_num == line &&
+strcmp(current->lexeme, lexeme) == 0 && strcmp(current->token, token) == 0) {
+return; // Skip duplicates
+}
+current = current->next;
+}
+
+
+SymTabEntry new_entry = (SymTabEntry)malloc(sizeof(SymTabEntry)); new_entry->line_num = line;
+strcpy(new_entry->lexeme, lexeme); strcpy(new_entry->token, token); new_entry->token_value = value;
+new_entry->next = symtab; symtab = new_entry;
+}
+
+void print_symtab() {
+// First count entries int count = 0;
+SymTabEntry *current = symtab;
+ 
+while (current != NULL) { count++;
+current = current->next;
+}
+
+// Create array for sorting
+SymTabEntry *entries = malloc(count * sizeof(SymTabEntry)); current = symtab;
+for (int i = 0; i < count; i++) { entries[i] = current;
+current = current->next;
+}
+
+// Simple bubble sort by line number for (int i = 0; i < count-1; i++) {
+for (int j = 0; j < count-i-1; j++) {
+if (entries[j]->line_num > entries[j+1]->line_num) { SymTabEntry *temp = entries[j];
+entries[j] = entries[j+1]; entries[j+1] = temp;
+}
+}
+}
+
+// Print sorted table
+printf("Line No\tLexeme\t\tToken\tToken_Value\n"); printf("	\n");
+ 
+for (int i = 0; i < count; i++) { printf("%d\t%s\t\t%s\t%d\n",
+entries[i]->line_num, entries[i]->lexeme, entries[i]->token,
+entries[i]->token_value);
+}
+
+
+free(entries);
+}
+
+void handle_error(const char *msg) {
+fprintf(stderr, "Error at line %d: %s near '%s'\n", line_num, msg, yytext); exit(1);
+}
+
+void unterminated_string_error() {
+fprintf(stderr, "Error at line %d: Unterminated string literal\n", line_num); exit(1);
+}
+
+
+void unclosed_brace_error() {
+fprintf(stderr, "Error: Unmatched curly braces - %d still open\n", brace_count);
+exit(1);
+}
+ 
+int yywrap() {
+if (brace_count != 0) { unclosed_brace_error();
+}
+return 1;
+}
+
+
+int main(int argc, char *argv[]) { yyin = fopen("input.txt", "r"); if (!yyin) {
+perror("Error opening file"); return 1;
+}
+yylex(); print_symtab(); fclose(yyin);
+
+// Free symbol table memory
+SymTabEntry *current = symtab; while (current != NULL) {
+SymTabEntry *temp = current; current = current->next;
+free(temp);
+}
+
+
+return 0;
+}
+
+
+
+
+cmd:
+flex lexer.l
+gcc lex.yy.c -o input.exe
+.\input.exe
+
+
+tokenization:
+english
+lexer.l:
+%{
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+
+#define MODE_ENGLISH 4
+
+int line_num = 1;
+int column_num = 1;
+
+const char *englishStopwords[] = {
+    "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "if", "in",
+    "into", "is", "it", "no", "not", "of", "on", "or", "such", "that", "the",
+    "their", "then", "there", "these", "they", "this", "to", "was", "will", "with", NULL
+};
+
+int isInList(const char *word, const char **list) {
+    for (int i = 0; list[i] != NULL; i++) {
+        if (strcasecmp(word, list[i]) == 0) return 1;
+    }
+    return 0;
+}
+
+const char* getTokenType(const char *value) {
+    if (isInList(value, englishStopwords)) return "STOPWORD";
+    if (isdigit(value[0])) return "NUMBER";
+    if (value[0] == '\'' || value[0] == '"') return "STRING";
+    if (ispunct(value[0])) return "PUNCTUATION";
+    if (isalpha(value[0])) return "WORD";
+    return "UNKNOWN";
+}
+%}
+
+%option noyywrap
+
+DIGIT       [0-9]
+LETTER      [a-zA-Z]
+WORD        {LETTER}+
+NUMBER      {DIGIT}+(\.{DIGIT}+)?
+PUNCT       [.,!?;:\"'()-]
+WHITESPACE  [ \t]+
+NEWLINE     \n
+%%
+
+{WHITESPACE} { column_num += yyleng; }
+
+{NEWLINE}    { line_num++; column_num = 1; }
+
+{WORD}       {
+    const char *type = getTokenType(yytext);
+    printf("| %-6d | %-6d | %-15s | %-12s | %-12s |\n",
+           column_num, line_num, yytext, type, yytext);
+    column_num += yyleng;
+}
+
+{NUMBER}     {
+    printf("| %-6d | %-6d | %-15s | %-12s | %-12s |\n",
+           column_num, line_num, yytext, "NUMBER", yytext);
+    column_num += yyleng;
+}
+
+{PUNCT}      {
+    printf("| %-6d | %-6d | %-15s | %-12s | %-12s |\n",
+           column_num, line_num, yytext, "PUNCTUATION", yytext);
+    column_num += yyleng;
+}
+
+.            {
+    printf("| %-6d | %-6d | %-15s | %-12s | %-12s |\n",
+           column_num, line_num, yytext, "UNKNOWN", yytext);
+    column_num += yyleng;
+}
+
+%%
+
+int main(int argc, char **argv) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
+        return 1;
+    }
+
+    printf("| %-6s | %-6s | %-15s | %-12s | %-12s |\n",
+           "Column", "Line", "Lexeme", "Token", "Token Value");
+    printf("|--------|--------|-----------------|--------------|--------------|\n");
+
+    yyin = fopen(argv[1], "r");
+    if (!yyin) {
+        fprintf(stderr, "Error opening file: %s\n", argv[1]);
+        return 1;
+    }
+
+    yylex();
+    fclose(yyin);
+    return 0;
+}
+
+
+iput.txt:
+The quick brown fox jumps over the lazy dog. This simple sentence contains
+all parts of speech we want to analyze. Beautiful flowers bloom wonderfully
+in spring, while cold winds blow fiercely in winter.
+
+She loves reading interesting books quietly in her cozy room. They happily
+played with their new toys yesterday. Our teacher explained the difficult
+concept very clearly.
+
+
+
+
+sql lexer.l:
+%{
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+
+int line_num = 1;
+int column_num = 1;
+
+const char *sqlKeywords[] = {
+    "SELECT", "FROM", "WHERE", "INSERT", "UPDATE", "DELETE",
+    "CREATE", "DROP", "TABLE", "VALUES", "INTO", "SET", NULL
+};
+
+int isInList(const char *word, const char **list) {
+    for (int i = 0; list[i] != NULL; i++) {
+        if (strcasecmp(word, list[i]) == 0) return 1;
+    }
+    return 0;
+}
+
+const char* getTokenType(const char *value) {
+    if (isInList(value, sqlKeywords)) return "KEYWORD";
+    if (isdigit(value[0])) return "NUMBER";
+    if (value[0] == '\'' || value[0] == '"') return "STRING";
+    if (strcmp(value, ";") == 0 || strcmp(value, ",") == 0 ||
+        strcmp(value, "(") == 0 || strcmp(value, ")") == 0) return "SYMBOL";
+    if (strcmp(value, "=") == 0 || strcmp(value, ">") == 0 || 
+        strcmp(value, "<") == 0 || strcmp(value, "!=") == 0 ||
+        strcmp(value, ">=") == 0 || strcmp(value, "<=") == 0 ||
+        strcmp(value, "+") == 0 || strcmp(value, "-") == 0 ||
+        strcmp(value, "*") == 0 || strcmp(value, "/") == 0) return "OPERATOR";
+    return "IDENTIFIER";
+}
+%}
+
+%option noyywrap
+
+DIGIT       [0-9]
+LETTER      [a-zA-Z]
+ID          ({LETTER}|_)({LETTER}|{DIGIT}|_)*
+NUMBER      {DIGIT}+
+STRING      \'[^\']*\'|\"[^\"]*\"
+OPERATOR    =|>|<|!=|>=|<=|\+|-|\*|/
+SYMBOL      [;(),]
+WHITESPACE  [ \t]+
+NEWLINE     \n
+%%
+
+{WHITESPACE} { column_num += yyleng; }
+{NEWLINE}    { line_num++; column_num = 1; }
+{STRING}     { printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n", column_num, line_num, yytext, "STRING", yytext); column_num += yyleng; }
+{SYMBOL}     { printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n", column_num, line_num, yytext, "SYMBOL", yytext); column_num += yyleng; }
+{NUMBER}     { printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n", column_num, line_num, yytext, "NUMBER", yytext); column_num += yyleng; }
+{ID}         { const char *type = getTokenType(yytext); printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n", column_num, line_num, yytext, type, yytext); column_num += yyleng; }
+.            { printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n", column_num, line_num, yytext, "ERROR", yytext); column_num += yyleng; }
+%%
+
+int main(int argc, char **argv) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
+        return 1;
+    }
+    printf("| %-6s | %-6s | %-15s | %-10s | %-12s |\n", "Column", "Line", "Lexeme", "Token", "Token Value");
+    printf("|--------|--------|-----------------|------------|--------------|\n");
+    yyin = fopen(argv[1], "r");
+    if (!yyin) {
+        fprintf(stderr, "Error opening file: %s\n", argv[1]);
+        return 1;
+    }
+    yylex();
+    fclose(yyin);
+    return 0;
+}
+
+
+input.sql
+SELECT name, age FROM users WHERE age > 21;
+
+INSERT INTO customers VALUES ('John Doe', 35, 'john@example.com');
+UPDATE products 
+SET price = price * 0.9 
+WHERE category = 'electronics';
+
+DELETE FROM orders WHERE order_date < '2023-01-01';
+
+CREATE TABLE employees (id INT PRIMARY KEY, name VARCHAR(100), department VARCHAR(50));
+SELECT o.order_id, c.name, p.product_name
+FROM orders o
+JOIN customers c ON o.customer_id = c.id
+JOIN products p ON o.product_id = p.id
+WHERE o.status = 'completed' AND p.category = 'books';
+
+
+python lexer.l:
+%{
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+
+#define MODE_PYTHON 2
+
+int line_num = 1;
+int column_num = 1;
+
+const char *pythonKeywords[] = {
+    "and", "as", "assert", "break", "class", "continue", "def",
+    "del", "elif", "else", "except", "False", "finally", "for",
+    "from", "global", "if", "import", "in", "is", "lambda",
+    "None", "nonlocal", "not", "or", "pass", "raise", "return",
+    "True", "try", "while", "with", "yield", NULL
+};
+
+int isInList(const char *word, const char **list) {
+    for (int i = 0; list[i] != NULL; i++) {
+        if (strcasecmp(word, list[i]) == 0) return 1;
+    }
+    return 0;
+}
+
+const char* getTokenType(const char *value) {
+    if (isInList(value, pythonKeywords)) return "KEYWORD";
+    if (isdigit(value[0])) return "NUMBER";
+    if (value[0] == '\'' || value[0] == '"') return "STRING";
+    if (strcmp(value, ":") == 0 || strcmp(value, ",") == 0 ||
+        strcmp(value, "(") == 0 || strcmp(value, ")") == 0 ||
+        strcmp(value, "{") == 0 || strcmp(value, "}") == 0 ||
+        strcmp(value, "[") == 0 || strcmp(value, "]") == 0) return "SYMBOL";
+    if (strcmp(value, "=") == 0 || strcmp(value, "+") == 0 || 
+        strcmp(value, "-") == 0 || strcmp(value, "*") == 0 ||
+        strcmp(value, "/") == 0 || strcmp(value, "%") == 0 ||
+        strcmp(value, "==") == 0 || strcmp(value, "!=") == 0 ||
+        strcmp(value, ">") == 0 || strcmp(value, "<") == 0 ||
+        strcmp(value, ">=") == 0 || strcmp(value, "<=") == 0) return "OPERATOR";
+    if (isalpha(value[0]) || value[0] == '_') return "IDENTIFIER";
+    return "UNKNOWN";
+}
+%}
+
+%option noyywrap
+
+DIGIT       [0-9]
+LETTER      [a-zA-Z]
+ID          ({LETTER}|_)({LETTER}|{DIGIT}|_)*
+NUMBER      {DIGIT}+(\.{DIGIT}+)?
+STRING      \"([^\"]*)\"|\'([^\']*)\'
+OPERATOR    "=="|"!="|">="|"<="|">"|"<"|"="|"+"|"-"|"*"|"/"|"%"
+SYMBOL      [:,(){}\[\]]
+WHITESPACE  [ \t]+
+NEWLINE     \n
+%%
+
+{WHITESPACE} { column_num += yyleng; }
+
+{NEWLINE}    { line_num++; column_num = 1; }
+
+{STRING}     {
+    printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n",
+           column_num, line_num, yytext, "STRING", yytext);
+    column_num += yyleng;
+}
+
+{OPERATOR}   {
+    printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n",
+           column_num, line_num, yytext, "OPERATOR", yytext);
+    column_num += yyleng;
+}
+
+{SYMBOL}     {
+    printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n",
+           column_num, line_num, yytext, "SYMBOL", yytext);
+    column_num += yyleng;
+}
+
+{NUMBER}     {
+    printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n",
+           column_num, line_num, yytext, "NUMBER", yytext);
+    column_num += yyleng;
+}
+
+{ID}         {
+    const char *type = getTokenType(yytext);
+    printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n",
+           column_num, line_num, yytext, type, yytext);
+    column_num += yyleng;
+}
+
+.            {
+    printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n",
+           column_num, line_num, yytext, "ERROR", yytext);
+    column_num += yyleng;
+}
+
+%%
+
+int main(int argc, char **argv) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
+        return 1;
+    }
+
+    printf("| %-6s | %-6s | %-15s | %-10s | %-12s |\n",
+           "Column", "Line", "Lexeme", "Token", "Token Value");
+    printf("|--------|--------|-----------------|------------|--------------|\n");
+
+    yyin = fopen(argv[1], "r");
+    if (!yyin) {
+        fprintf(stderr, "Error opening file: %s\n", argv[1]);
+        return 1;
+    }
+
+    yylex();
+    fclose(yyin);
+    return 0;
+}
+
+python input.py:
+def calculate_average(numbers):
+    """This function calculates the average"""
+    total = sum(numbers)
+    count = len(numbers)
+    
+    if count == 0:
+        return 0  # Avoid division by zero
+    else:
+        return total / count
+
+data = [10, 20, 30, 40, 50]
+average = calculate_average(data)
+
+print(f"The average is: {average:.2f}")
+
+
+
+
+java 
+lexer.l:
+%{
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+
+#define MODE_JAVA 3
+
+int line_num = 1;
+int column_num = 1;
+
+const char *javaKeywords[] = {
+    "abstract", "assert", "boolean", "break", "byte", "case", "catch",
+    "char", "class", "const", "continue", "default", "do", "double",
+    "else", "enum", "extends", "final", "finally", "float", "for",
+    "goto", "if", "implements", "import", "instanceof", "int",
+    "interface", "long", "native", "new", "package", "private",
+    "protected", "public", "return", "short", "static", "strictfp",
+    "super", "switch", "synchronized", "this", "throw", "throws",
+    "transient", "try", "void", "volatile", "while", NULL
+};
+
+int isInList(const char *word, const char **list) {
+    for (int i = 0; list[i] != NULL; i++) {
+        if (strcasecmp(word, list[i]) == 0) return 1;
+    }
+    return 0;
+}
+
+const char* getTokenType(const char *value) {
+    if (isInList(value, javaKeywords)) return "KEYWORD";
+    if (isdigit(value[0])) return "NUMBER";
+    if (value[0] == '\'' || value[0] == '"') return "STRING";
+    if (strcmp(value, ";") == 0 || strcmp(value, ",") == 0 ||
+        strcmp(value, "(") == 0 || strcmp(value, ")") == 0 ||
+        strcmp(value, "{") == 0 || strcmp(value, "}") == 0 ||
+        strcmp(value, "[") == 0 || strcmp(value, "]") == 0 ||
+        strcmp(value, ".") == 0) return "SYMBOL";
+    if (strcmp(value, "=") == 0 || strcmp(value, "+") == 0 ||
+        strcmp(value, "-") == 0 || strcmp(value, "*") == 0 ||
+        strcmp(value, "/") == 0 || strcmp(value, "%") == 0 ||
+        strcmp(value, "==") == 0 || strcmp(value, "!=") == 0 ||
+        strcmp(value, ">") == 0 || strcmp(value, "<") == 0 ||
+        strcmp(value, ">=") == 0 || strcmp(value, "<=") == 0 ||
+        strcmp(value, "++") == 0 || strcmp(value, "--") == 0 ||
+        strcmp(value, "+=") == 0 || strcmp(value, "-=") == 0 ||
+        strcmp(value, "*=") == 0 || strcmp(value, "/=") == 0) return "OPERATOR";
+    if (isalpha(value[0]) || value[0] == '_') return "IDENTIFIER";
+    return "UNKNOWN";
+}
+%}
+
+%option noyywrap
+
+DIGIT       [0-9]
+LETTER      [a-zA-Z]
+ID          ({LETTER}|_)({LETTER}|{DIGIT}|_)*
+NUMBER      {DIGIT}+(\.{DIGIT}+)?
+STRING      \"([^\"]*)\"|\'([^\']*)\'
+OPERATOR    "=="|"!="|">="|"<="|">"|"<"|"="|"+"|"-"|"*"|"/"|"%"|"++"|"--"|"+="|"-="|"*="|"/="
+SYMBOL      [;,.(){}\[\]]
+WHITESPACE  [ \t]+
+NEWLINE     \n
+%%
+
+{WHITESPACE} { column_num += yyleng; }
+
+{NEWLINE}    { line_num++; column_num = 1; }
+
+{STRING}     {
+    printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n",
+           column_num, line_num, yytext, "STRING", yytext);
+    column_num += yyleng;
+}
+
+{OPERATOR}   {
+    printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n",
+           column_num, line_num, yytext, "OPERATOR", yytext);
+    column_num += yyleng;
+}
+
+{SYMBOL}     {
+    printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n",
+           column_num, line_num, yytext, "SYMBOL", yytext);
+    column_num += yyleng;
+}
+
+{NUMBER}     {
+    printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n",
+           column_num, line_num, yytext, "NUMBER", yytext);
+    column_num += yyleng;
+}
+
+{ID}         {
+    const char *type = getTokenType(yytext);
+    printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n",
+           column_num, line_num, yytext, type, yytext);
+    column_num += yyleng;
+}
+
+.            {
+    printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n",
+           column_num, line_num, yytext, "ERROR", yytext);
+    column_num += yyleng;
+}
+
+%%
+
+int main(int argc, char **argv) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
+        return 1;
+    }
+
+    printf("| %-6s | %-6s | %-15s | %-10s | %-12s |\n",
+           "Column", "Line", "Lexeme", "Token", "Token Value");
+    printf("|--------|--------|-----------------|------------|--------------|\n");
+
+    yyin = fopen(argv[1], "r");
+    if (!yyin) {
+        fprintf(stderr, "Error opening file: %s\n", argv[1]);
+        return 1;
+    }
+
+    yylex();
+    fclose(yyin);
+    return 0;
+}
+
+
+input.java:
+public class input {
+    public static void main(String[] args) {
+        System.out.println("Hello, World!");
+    }
+}
+
+
+
+C LANGUAGE LEXER:
+
+%{
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+
+#define MODE_C 1
+
+int line_num = 1;
+int column_num = 1;
+
+const char *cKeywords[] = {
+    "auto", "break", "case", "char", "const", "continue",
+    "default", "do", "double", "else", "enum", "extern",
+    "float", "for", "goto", "if", "int", "long",
+    "register", "return", "short", "signed", "sizeof", "static",
+    "struct", "switch", "typedef", "union", "unsigned", "void",
+    "volatile", "while", NULL
+};
+
+int isInList(const char *word, const char **list) {
+    for (int i = 0; list[i] != NULL; i++) {
+        if (strcasecmp(word, list[i]) == 0) return 1;
+    }
+    return 0;
+}
+
+const char* getTokenType(const char *value) {
+    if (isInList(value, cKeywords)) return "KEYWORD";
+    if (isdigit(value[0])) return "NUMBER";
+    if (value[0] == '\'' || value[0] == '"') return "STRING";
+    if (strcmp(value, ";") == 0 || strcmp(value, ",") == 0 ||
+        strcmp(value, "(") == 0 || strcmp(value, ")") == 0 ||
+        strcmp(value, "{") == 0 || strcmp(value, "}") == 0 ||
+        strcmp(value, "[") == 0 || strcmp(value, "]") == 0) return "SYMBOL";
+    if (strcmp(value, "=") == 0 || strcmp(value, ">") == 0 || 
+        strcmp(value, "<") == 0 || strcmp(value, "!=") == 0 ||
+        strcmp(value, ">=") == 0 || strcmp(value, "<=") == 0 ||
+        strcmp(value, "+") == 0 || strcmp(value, "-") == 0 ||
+        strcmp(value, "*") == 0 || strcmp(value, "/") == 0 ||
+        strcmp(value, "==") == 0 || strcmp(value, "++") == 0 ||
+        strcmp(value, "--") == 0 || strcmp(value, "+=") == 0 ||
+        strcmp(value, "-=") == 0 || strcmp(value, "*=") == 0 ||
+        strcmp(value, "/=") == 0) return "OPERATOR";
+    if (isalpha(value[0]) || value[0] == '_') return "IDENTIFIER";
+    return "UNKNOWN";
+}
+%}
+
+%option noyywrap
+
+DIGIT       [0-9]
+LETTER      [a-zA-Z]
+ID          ({LETTER}|_)({LETTER}|{DIGIT}|_)*
+NUMBER      {DIGIT}+
+STRING      \'[^\']*\'|\"[^\"]*\"
+OPERATOR    "="|">"|"<"|"!="|">="|"<="|"+"|"-"|"*"|"/"|"=="|"++"|"--"|"+="|"-="|"*="|"/="
+SYMBOL      [;(),{}\[\]]
+WHITESPACE  [ \t]+
+NEWLINE     \n
+%%
+
+{WHITESPACE} { column_num += yyleng; }
+
+{NEWLINE}    { line_num++; column_num = 1; }
+
+{STRING}     {
+    printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n", 
+           column_num, line_num, yytext, "STRING", yytext);
+    column_num += yyleng;
+}
+
+{OPERATOR}   {
+    printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n", 
+           column_num, line_num, yytext, "OPERATOR", yytext);
+    column_num += yyleng;
+}
+
+{SYMBOL}     {
+    printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n", 
+           column_num, line_num, yytext, "SYMBOL", yytext);
+    column_num += yyleng;
+}
+
+{NUMBER}     {
+    printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n", 
+           column_num, line_num, yytext, "NUMBER", yytext);
+    column_num += yyleng;
+}
+
+{ID}         {
+    const char *type = getTokenType(yytext);
+    printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n", 
+           column_num, line_num, yytext, type, yytext);
+    column_num += yyleng;
+}
+
+.            {
+    printf("| %-6d | %-6d | %-15s | %-10s | %-12s |\n", 
+           column_num, line_num, yytext, "ERROR", yytext);
+    column_num += yyleng;
+}
+
+%%
+
+int main(int argc, char **argv) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
+        return 1;
+    }
+
+    printf("| %-6s | %-6s | %-15s | %-10s | %-12s |\n", 
+           "Column", "Line", "Lexeme", "Token", "Token Value");
+    printf("|--------|--------|-----------------|------------|--------------|\n");
+
+    yyin = fopen(argv[1], "r");
+    if (!yyin) {
+        fprintf(stderr, "Error opening file: %s\n", argv[1]);
+        return 1;
+    }
+
+    yylex();
+    fclose(yyin);
+    return 0;
+}
+
+INPUT.C:#include <stdio.h>
+
+#define MAX 100
+
+int main() {
+    int num1 = 10, num2 = 20;
+    float result;
+
+    if (num1 > num2) {
+        result = num1 * 1.5;
+    } else {
+        result = num2 / 2.0;
+    }
+    
+    printf("Result: %.2f\n", result);
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+assign3: phone no and all
+
+lexerl.l
+
+%{
+#include<stdio.h>
+#include<stdlib.h>
+
+int line_no =1;
+
+%}
+
+%%
+\n {line_no++;}
+
+
+[0-9]{10} {
+    printf("%d\t%s\tphone number\n",line_no,yytext);
+}
+
+[0-9][0-9]+"/"+[0-9][0-9]+"/"+[0-9][0-9]+    {
+    printf("%d\t%s\tvalid date\n", line_no, yytext);
+}
+
+https?:\/\/www\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,} {
+    printf("%d\t%s\tvalid url\n", line_no, yytext);
+}
+
+[0-9]{2}:[0-9]{2}:[0-9]{2} {
+     printf("%d\t%s\tvalid time\n",line_no,yytext);
+}
+
+[A-Z][a-zA-Z]+ {
+      printf("%d\t%s\tvalid name\n",line_no,yytext);
+
+}
+
+[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,} {
+
+    printf("%d\t%s\tvalid email\n",line_no,yytext);
+}
+
+
+
+%%
+
+int main(int argc, char **argv){
+    FILE *file;
+    file =fopen("input.txt" ,"r");
+    if(!file){
+        printf("error in opening file\n");
+        exit(0);
+    }
+
+    printf("line no\ttoken\ttokenvalue\n");
+
+     yyin=file;
+     yylex();
+     return 0;
+
+}
+
+int yywrap(){
+    return 1;
+}
+
+input.txt:
+JohnDoe
+9876543210
+https://www.example.com
+john.doe@example.com
+12/31/2024
+23:59:59
+
+
+cmd:
+flex lexer.l
+gcc lex.yy.c -o input.exe
+.\input.exe
+
+
+
+phone no:
+lexer.l:
+%{
+#include <stdio.h>
+#include <string.h>
+
+int line_number = 1;
+
+%}
+
+%%
+
+
+\n                                                                       { line_number++; }
+
+"+"+[0-9]+[0-9]+[0-9]+[0-9]+[0-9]+[0-9]+[0-9]+[0-9]+[0-9]+[0-9]          { printf("%-10d %-30s %-25s %-25s\n", line_number, yytext, "Valid Number", yytext); } // Decimal Number
+"+"+[0-9]+" "+[0-9]+[0-9]+[0-9]+[0-9]+[0-9]+[0-9]+[0-9]+[0-9]+[0-9]      { printf("%-10d %-30s %-25s %-25s\n", line_number, yytext, "Valid Number", yytext); } // Decimal Number
+
+[A-Z]+[a-z]+" "+[A-Za-z]+                                                { printf("%-10d %-30s %-25s %-25s\n", line_number, yytext, "Valid Name", yytext); }
+
+[a-z0-9]+"@"+[a-z]+"."+[a-z]+"."+[a-z]+                                  { printf("%-10d %-30s %-25s %-25s\n", line_number, yytext, "Valid Email", yytext); }
+[a-z0-9]+"@"+[a-z]+"."+[a-z]+                                            { printf("%-10d %-30s %-25s %-25s\n", line_number, yytext, "Valid Email", yytext); }
+[www]+"."+[a-z]+"."+[a-z]+"."+[a-z]+                                     { printf("%-10d %-30s %-25s %-25s\n", line_number, yytext, "Valid URL", yytext); }
+[https://]+[www]+"."+[a-z]+"."+[a-z]+"."+[a-z]+                          { printf("%-10d %-30s %-25s %-25s\n", line_number, yytext, "Valid URL", yytext); }
+[www]+"."+[a-z]+"."+[a-z]+                                               { printf("%-10d %-30s %-25s %-25s\n", line_number, yytext, "Valid URL", yytext); }
+[https://]+[www]+"."+[a-z]+"."+[a-z]+                                    { printf("%-10d %-30s %-25s %-25s\n", line_number, yytext, "Valid URL", yytext); }
+[0-9][0-9]+"-"+[0-9][0-9]+"-"+[0-9][0-9][0-9][0-9]+                      { printf("%-10d %-30s %-25s %-25s\n", line_number, yytext, "Valid Date", yytext); }
+[0-9][0-9]+"/"+[0-9][0-9]+"/"+[0-9][0-9]+                                { printf("%-10d %-30s %-25s %-25s\n", line_number, yytext, "Valid Date", yytext); }
+[0-9]+":"+[0-9][0-9]+":"+[0-9][0-9]                                      { printf("%-10d %-30s %-25s %-25s\n", line_number, yytext, "Valid Time", yytext); }
+.+                                                                       { printf("%-10d %-30s %-25s %-15s\n", line_number, yytext, "INVALID", yytext); }
+
+
+
+%%
+
+int yywrap() {
+    return 1;
+}
+
+int main(int argc, char **argv) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
+        return 1;
+    }
+
+    FILE *file = fopen(argv[1], "r");
+    if (!file) {
+        perror("Error opening file");
+        return 1;
+    }
+
+      yyin = file;
+    printf("\n-----------------------------------------------------------------------------------------------\n");
+    printf("%-10s %-30s %-25s %-15s\n", "Line No", "Lexeme", "Token", "Token Value");
+    printf("-----------------------------------------------------------------------------------------------\n");
+
+    yylex();
+    printf("-----------------------------------------------------------------------------------------------\n\n");
+    fclose(file);
+    return 0;
+}
+
+
+
+input.txt:
+JohnDoe
+9876543210 
+https://www.example.com
+john.doe@example.com
+12/31/2024
+23:59:59
+Alice Wonderland
+1234567890
+h
+hm-email@@example..com
+09/09/2024
+25:99:99
+Hello@World
+randomtext
+www.doubleDot.com
+
+
+
+
+
+
+assign4: English verb  noun...
+
+
+lexer.l
+%{
+#include <stdio.h>
+#include <stdlib.h>
+
+int line_number = 1;
+%}
+
+%%
+
+[ \t\r]+    { /* ignore whitespace */ }
+
+\n          { line_number++; }
+
+[.,;!?:]    { printf("%d\t%s\tPUNCTUATION\n", line_number, yytext); }
+
+\"[^"\n]*\" { printf("%d\t%s\tQUOTATION\n", line_number, yytext); }
+
+[0-9]+"."[0-9]+ { printf("%d\t%s\tFLOAT\n", line_number, yytext); }
+
+[0-9]+      { printf("%d\t%s\tNUMBER\n", line_number, yytext); }
+
+
+dog|cat|car|tree|house|book|fox|cats|dogs|sohail|shaikh {
+    printf("%d\t%s\tNOUN\n", line_number, yytext);
+}
+
+
+big|small|blue|fast|happy|sad|cozy|well|large|tall|strong|interesting|playful|loyal|expensive|lazy|quick|brown {
+    printf("%d\t%s\tADJECTIVE\n", line_number, yytext);
+}
+
+run|jump|read|write|writes|sing|eat|swayed|believe|jumps {
+    printf("%d\t%s\tVERB\n", line_number, yytext);
+}
+
+
+quickly|slowly|happily|sadly|easily {
+    printf("%d\t%s\tADVERB\n", line_number, yytext);
+}
+
+[a-zA-Z]+   { printf("%d\t%s\tWORD\n", line_number, yytext); }
+
+.           { printf("%d\t%s\tUNKNOWN\n", line_number, yytext); }
+
+%%
+
+int yywrap() {
+    return 1;
+}
+
+int main(int argc, char **argv) {
+    FILE *file = fopen("input.txt", "r");
+    if(!file) {
+        printf("Error opening file\n");
+        exit(0);
+    }
+
+    printf("LINE\tLEXEME\t\tTOKEN\n");
+    printf("------------------------\n");
+    
+    yyin = file;
+    yylex();
+    fclose(file);
+    return 0;
+}
+
+
+
+
+or 
+
+
+lexer.l:
+
+%{
+#include <stdio.h>
+#include <string.h>
+
+int is_noun(char word[]);
+int is_adjective(char word[]);
+int is_verb(char word[]);
+int is_adverb(char word[]);
+
+int line_number = 1;
+%}
+
+%%
+
+[ \t\r]+              { printf("%-10d %-15s %-15s\n", line_number, "WHITESPACE", "WHITESPACE"); }
+
+\n                    { line_number++; }
+
+[.,;!?:]              { printf("%-10d %-15s %-15s %-15s\n", line_number, yytext, "PUNCTUATION", yytext); }
+
+\"(\\.|[^\"])*\"      { printf("%-10d %-15s %-15s %-15s\n", line_number, yytext, "QUOTATION", yytext); }  // For strings enclosed in quotes
+
+[0-9]+"."[0-9]+       { printf("%-10d %-15s %-15s %-15s\n", line_number, yytext, "NUMBER", yytext); } // Decimal Number
+
+[0-9]+                { printf("%-10d %-15s %-15s %-15s\n", line_number, yytext, "NUMBER", yytext); }
+
+[a-zA-Z]+             {
+                          if (is_noun(yytext)) {
+                              printf("%-10d %-15s %-15s %-15s\n", line_number, yytext, "NOUN", yytext);
+                          } else if (is_adjective(yytext)) {
+                              printf("%-10d %-15s %-15s %-15s\n", line_number, yytext, "ADJECTIVE", yytext);
+                          } else if (is_verb(yytext)) {
+                              printf("%-10d %-15s %-15s %-15s\n", line_number, yytext, "VERB", yytext);
+                          } else if (is_adverb(yytext)) {
+                              printf("%-10d %-15s %-15s %-15s\n", line_number, yytext, "ADVERB", yytext);
+                          } else {
+                              printf("%-10d %-15s %-15s %-15s\n", line_number, yytext, "WORD", yytext);
+                          }
+                      }
+
+.                     { printf("%-10d %-15s %-15s %-15s\n", line_number, yytext, "UNKNOWN CHARACTER", yytext); }
+%%
+
+int is_noun(char word[]) {
+    char *nouns[] = {"dog", "cat", "car", "tree", "house", "book", "sohail", "shaikh", "fox", "cats", "dogs", NULL};
+    for (int i = 0; nouns[i] != NULL; i++) {
+        if (strcmp(word, nouns[i]) == 0) return 1;
+    }
+    return 0;
+}
+
+int is_adjective(char word[]) {
+    char *adjectives[] = {"big", "small", "blue", "fast", "happy", "sad", "cozy",  "well", "large", "tall", "strong", "interesting", "playful", "loyal", "expensive", "small", "lazy", "quick", "brown", NULL};
+    for (int i = 0; adjectives[i] != NULL; i++) {
+        if (strcmp(word, adjectives[i]) == 0) return 1;
+    }
+    return 0;
+}
+
+int is_verb(char word[]) {
+    char *verbs[] = {"run", "jump", "read", "write", "writes", "sing", "eat", "swayed", "believe", "jumps", NULL};
+    for (int i = 0; verbs[i] != NULL; i++) {
+        if (strcmp(word, verbs[i]) == 0) return 1;
+    }
+    return 0;
+}
+
+int is_adverb(char word[]) {
+    char *adverbs[] = {"quickly", "slowly", "happily", "sadly", "easily", NULL};
+    for (int i = 0; adverbs[i] != NULL; i++) {
+        if (strcmp(word, adverbs[i]) == 0) return 1;
+    }
+    return 0;
+}
+
+int yywrap() {
+    return 1;
+}
+
+int main(int argc, char **argv) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
+        return 1;
+    }
+
+    FILE *file = fopen(argv[1], "r");
+    if (!file) {
+        perror("Error opening file");
+        return 1;
+    }
+
+    yyin = file;
+    printf("%-10s %-15s %-15s %-15s\n", "Line No", "Lexeme", "Token", "Token Value");
+    printf("--------------------------------------------------------------\n");
+
+    yylex();
+    fclose(file);
+    return 0;
+}
+
+
+
+input.txt:
+The quick brown fox jumps over the lazy dog.
+A big cat slowly climbed the tall tree.
+"Hello world!" said the programmer.
+Dogs are man's best friend.
+42 is the answer to life, the universe, and everything.
+Run, eat, sleep, repeat.
+She danced gracefully and moved quickly across the stage.
+Punctuation is important: commas, periods, and exclamations!
+This sentence has some numbers: 12345 and 67890.
+"Flex is fun!" exclaimed the student.
+Coding is both challenging and rewarding.
+Do you know the noun, verb, adjective, and adverb rules?
+It's important to practice every day.
+"Stay focused," she said, "and work hard."
+!@#$%^&*() - These are some special characters.
+Whitespace separates words and makes text readable.
+
+
+
+Assign5: 
+expression:
+
+p:(calculator)
+lexer.l
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include "yacc.tab.h"
+%}
+
+%%
+
+[0-9]+ {
+    yylval.val = atoi(yytext);
+    return NUMBER;
+}
+
+[ \t] ;       // Skip whitespace
+\n     return 0;
+.      return yytext[0];
+
+%%
+
+int yywrap() { return 1; }
+
+
+yacc.y
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int yylex();
+void yyerror(const char *s);
+int flag = 0;
+
+typedef struct node {
+    char name[20];
+    struct node *left, *right;
+    int val;
+} node;
+
+node* createNode(char* name, node* left, node* right, int val);
+void printTree(node* root, int level);
+%}
+
+%union {
+    int val;
+    struct node* n;
+}
+
+%token <val> NUMBER
+%type <n> E ArithmeticExpression
+%left '+' '-'
+%left '*' '/' '%'
+
+%%
+
+ArithmeticExpression:
+    E {
+        printf("Valid expression\n");
+        printTree($1, 1);
+        printf("\nResult = %d\n", $1->val);
+        return 0;
+    }
+;
+
+E:
+    E '+' E {
+        $$ = createNode("+", $1, $3, $1->val + $3->val);
+    }
+  | E '-' E {
+        $$ = createNode("-", $1, $3, $1->val - $3->val);
+    }
+  | E '*' E {
+        $$ = createNode("*", $1, $3, $1->val * $3->val);
+    }
+  | E '/' E {
+        if ($3->val == 0) {
+            yyerror("Division by zero");
+            YYABORT;
+        }
+        $$ = createNode("/", $1, $3, $1->val / $3->val);
+    }
+  | E '%' E {
+        $$ = createNode("%", $1, $3, $1->val % $3->val);
+    }
+  | '(' E ')' {
+        $$ = createNode("()", $2, NULL, $2->val);
+    }
+  | NUMBER {
+        char buf[20];
+        sprintf(buf, "%d", $1);
+        $$ = createNode(buf, NULL, NULL, $1);
+    }
+;
+
+%%
+
+node* createNode(char* name, node* left, node* right, int val) {
+    node* newNode = (node*)malloc(sizeof(node));
+    strcpy(newNode->name, name);
+    newNode->left = left;
+    newNode->right = right;
+    newNode->val = val;
+    return newNode;
+}
+
+void printTree(node* root, int level) {
+    if (!root) return;
+    for (int i = 1; i < level; i++) printf("  ");
+    printf("|-- %s\n", root->name);
+    printTree(root->left, level + 1);
+    printTree(root->right, level + 1);
+}
+
+int main() {
+    printf("Enter any arithmetic expression:\n");
+    yyparse();
+    if(flag == 0)
+        printf("\nEntered arithmetic expression is Valid\n");
+    return 0;
+}
+
+void yyerror(const char *s) {
+    printf("\nError: %s\n", s);
+    flag = 1;
+}
+
+
+cmd
+bison -d yacc.y 
+flex lexer.l
+gcc yacc.tab.c -o parser
+.\parser.exe
+
+
+an5 expression:
+
+lexer.l:
+%{
+#include "expression.tab.h"
+
+%}
+
+%%
+
+[0-9]+       { yylval.num = atoi(yytext); return NUMBER; }
+[a-zA-Z]     { yylval.var = yytext[0]; return VARIABLE; }
+[+\-*/()]    { return yytext[0]; }
+[ \t\n]      { /* Ignore whitespace */ }
+.            { printf("Invalid character: %s\n", yytext); }
+
+%%
+
+int yywrap() {
+    return 1;
+}
+
+
+expression.y
+
+%{
+#include <stdio.h>
+#include <stdlib.h>
+
+void yyerror(const char *s);
+int yylex();
+%}
+
+%union {
+    int num;   /* For numbers */
+    char var;  /* For single-letter variables */
+}
+
+%token <num> NUMBER
+%token <var> VARIABLE
+%left '+' '-'
+%left '*' '/'
+
+%%
+
+expr : expr '+' term  { printf("Parsed: expr + term\n"); }
+     | expr '-' term  { printf("Parsed: expr - term\n"); }
+     | term           { printf("Parsed: term\n"); }
+     ;
+
+term : term '*' factor { printf("Parsed: term * factor\n"); }
+     | term '/' factor { printf("Parsed: term / factor\n"); }
+     | factor          { printf("Parsed: factor\n"); }
+     ;
+
+factor : '(' expr ')'  { printf("Parsed: (expr)\n"); }
+       | NUMBER        { printf("Parsed: NUMBER: %d\n", $1); }
+       | VARIABLE      { printf("Parsed: VARIABLE: %c\n", $1); }
+       ;
+
+%%
+
+void yyerror(const char *s) {
+    printf("Error: %s\n", s);
+}
+
+int main() {
+    printf("Enter an expression:\n");
+    yyparse();
+    return 0;
+}
+
+
+
+
+assign 6
+while:
+p:
+
+lexer.l
+
+%{
+#include "yacc.tab.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int line_num = 1;
+void print_token(const char *lexeme, const char *token, const char *value);
+%}
+
+%%
+"while"         { print_token(yytext, "WHILE", "-"); return WHILE; }
+"("             { print_token(yytext, "LPAREN", "-"); return LPAREN; }
+")"             { print_token(yytext, "RPAREN", "-"); return RPAREN; }
+"{"             { print_token(yytext, "LBRACE", "-"); return LBRACE; }
+"}"             { print_token(yytext, "RBRACE", "-"); return RBRACE; }
+";"             { print_token(yytext, "SEMICOLON", "-"); return SEMICOLON; }
+
+[0-9]+          {
+    yylval.str = strdup(yytext);
+    print_token(yytext, "NUMBER", yytext);
+    return NUMBER;
+}
+
+[a-zA-Z_][a-zA-Z0-9_]* {
+    yylval.str = strdup(yytext);
+    print_token(yytext, "IDENTIFIER", yytext);
+    return IDENTIFIER;
+}
+
+[ \t\r]+        { /* ignore whitespace */ }
+\n              { line_num++; }
+.               { printf("Line %d | %-20s | UNKNOWN\n", line_num, yytext); }
+
+%%
+int yywrap() { return 1; }
+
+
+yacc.y:
+
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int yylex(void);
+void yyerror(const char *s);
+extern int line_num;
+void print_token(const char *lexeme, const char *token, const char *value);
+void print_parse_node(const char *label, int level);
+%}
+
+%union {
+    char *str;
+}
+
+%token <str> IDENTIFIER
+%token <str> NUMBER
+%token WHILE LPAREN RPAREN LBRACE RBRACE SEMICOLON
+%type <str> expression statement
+
+%start program
+
+%%
+   
+program:
+    WHILE LPAREN expression RPAREN LBRACE statement RBRACE {
+        printf("\n--- PARSE TREE ---\n");
+        print_parse_node("program", 0);
+        print_parse_node("WHILE", 1);
+        print_parse_node("(", 1);
+        print_parse_node("expression", 1);
+        print_parse_node($3, 2);
+        print_parse_node(")", 1);
+        print_parse_node("{", 1);
+        print_parse_node("statement", 1);
+        print_parse_node($6, 2);
+        print_parse_node(";", 2);
+        print_parse_node("}", 1);
+        printf("\nParsing Successful!\n");
+    }
+;
+
+expression:
+    IDENTIFIER { $$ = strdup("IDENTIFIER"); }
+  | NUMBER     { $$ = strdup("NUMBER"); }
+;
+
+statement:
+    IDENTIFIER SEMICOLON { $$ = strdup("IDENTIFIER"); }
+  | NUMBER SEMICOLON     { $$ = strdup("NUMBER"); }
+;
+
+%%
+
+void print_parse_node(const char *label, int level) {
+    for (int i = 0; i < level; i++) printf("|  ");
+    printf("|-- %s\n", label);
+}
+
+void print_token(const char *lexeme, const char *token, const char *value) {
+    printf("Line %-3d | %-15s | %-12s | %-10s\n", line_num, lexeme, token, value);
+}
+
+void yyerror(const char *s) {
+    fprintf(stderr, "\nSyntax error at line %d: %s\n", line_num, s);
+}
+
+// ✅ Multiline input: ends on empty line
+int main() {
+    printf("Enter your full code (e.g., while(x){x;}), then press Enter TWICE when done:\n\n");
+
+    // Read multi-line input into buffer
+    char input[1000] = "";
+    char line[256];
+
+    while (fgets(line, sizeof(line), stdin)) {
+        if (strcmp(line, "\n") == 0) break; // stop on blank line
+        strcat(input, line);
+    }
+
+    // Write input to temporary file
+    FILE *temp = fopen("temp_input.c", "w");
+    fprintf(temp, "%s", input);
+    fclose(temp);
+
+    // Open file for parsing
+    extern FILE *yyin;
+    yyin = fopen("temp_input.c", "r");
+    if (!yyin) {
+        perror("Failed to open temp file");
+        return 1;
+    }
+
+    yyparse();
+    fclose(yyin);
+    return 0;
+}
+
+
+
+assign 7
+
+constant folding:
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#define MAX 100
+
+struct Quadruple {
+    char op[5], arg1[10], arg2[10], result[10];
+};
+
+int isConstant(char *s) {
+    for (int i = 0; i < strlen(s); i++) {
+        if (!(s[i] >= '0' && s[i] <= '9')) return 0;
+    }
+    return 1;
+}
+
+int evaluate(char *op, int a, int b) {
+    if (strcmp(op, "+") == 0) return a + b;
+    if (strcmp(op, "-") == 0) return a - b;
+    if (strcmp(op, "*") == 0) return a * b;
+    if (strcmp(op, "/") == 0) return b != 0 ? a / b : 0; // simple check
+    return 0;
+}
+
+int main() {
+    struct Quadruple q[MAX], optimized[MAX];
+    int n, i, j, k = 0, isCommon;
+    char constMap[MAX][10];   // holds result name
+    char constVal[MAX][10];   // holds its constant value
+    int constCount = 0;
+
+    FILE *fp = fopen("input123.txt", "r");
+    if (fp == NULL) {
+        printf("Error: Cannot open input2.txt\n");
+        return 1;
+    }
+
+    fscanf(fp, "%d", &n);
+    for (i = 0; i < n; i++) {
+        fscanf(fp, "%s %s %s %s", q[i].op, q[i].arg1, q[i].arg2, q[i].result);
+    }
+    fclose(fp);
+
+    for (i = 0; i < n; i++) {
+        // Constant propagation
+        for (j = 0; j < constCount; j++) {
+            if (strcmp(q[i].arg1, constMap[j]) == 0) {
+                strcpy(q[i].arg1, constVal[j]);
+            }
+            if (strcmp(q[i].arg2, constMap[j]) == 0) {
+                strcpy(q[i].arg2, constVal[j]);
+            }
+        }
+
+        // Constant folding
+        if (isConstant(q[i].arg1) && isConstant(q[i].arg2) &&
+           (strcmp(q[i].op, "+") == 0 || strcmp(q[i].op, "-") == 0 ||
+            strcmp(q[i].op, "*") == 0 || strcmp(q[i].op, "/") == 0)) {
+
+            int val1 = atoi(q[i].arg1);
+            int val2 = atoi(q[i].arg2);
+            int result = evaluate(q[i].op, val1, val2);
+            printf("Folding constant expression: %s %s %s => %d\n", q[i].op, q[i].arg1, q[i].arg2, result);
+
+            sprintf(q[i].arg1, "%d", result);
+            strcpy(q[i].op, "=");
+            strcpy(q[i].arg2, "-");
+
+            // Add to constant table
+            strcpy(constMap[constCount], q[i].result);
+            strcpy(constVal[constCount], q[i].arg1);
+            constCount++;
+        }
+
+        // Common subexpression elimination
+        isCommon = 0;
+        for (j = 0; j < k; j++) {
+            if (strcmp(q[i].op, optimized[j].op) == 0 &&
+               ((strcmp(q[i].arg1, optimized[j].arg1) == 0 && strcmp(q[i].arg2, optimized[j].arg2) == 0) ||
+                (strcmp(q[i].arg1, optimized[j].arg2) == 0 && strcmp(q[i].arg2, optimized[j].arg1) == 0))) {
+                printf("Eliminating common sub-expression: %s %s %s %s\n",
+                       q[i].op, q[i].arg1, q[i].arg2, q[i].result);
+                printf("Reusing result from %s\n", optimized[j].result);
+
+                strcpy(q[i].op, "=");
+                strcpy(q[i].arg1, optimized[j].result);
+                strcpy(q[i].arg2, "-");
+                isCommon = 1;
+                break;
+            }
+        }
+
+        // Track direct constants (= 5)
+        if (strcmp(q[i].op, "=") == 0 && isConstant(q[i].arg1)) {
+            strcpy(constMap[constCount], q[i].result);
+            strcpy(constVal[constCount], q[i].arg1);
+            constCount++;
+        }
+
+        if (!isCommon) {
+            optimized[k++] = q[i];
+        }
+    }
+
+    printf("\nOptimized Quadruples:\n");
+    for (i = 0; i < n; i++) {
+        printf("%s\t%s\t%s\t%s\n", q[i].op, q[i].arg1, q[i].arg2, q[i].result);
+    }
+
+    return 0;
+}
+
+
+input.txt:
+6
+= 5 - a
+= 10 - b
++ a b t1
++ a b t2
+* t1 2 t3
++ a b t4
+
+
+
+
+code p:
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+
+#define MAX_LINE 256
+
+
+int is_constant_expr(char *expr, int *result) {
+    int a, b;
+    char op;
+
+
+    // Remove whitespace
+    char clean[MAX_LINE];
+    int j = 0;
+    for (int i = 0; expr[i]; i++)
+        if (!isspace(expr[i])) clean[j++] = expr[i];
+    clean[j] = '\0';
+
+
+    // Match pattern: <int> <op> <int>
+    if (sscanf(clean, "%d%c%d", &a, &op, &b) == 3) {
+        switch (op) {
+            case '+': *result = a + b; return 1;
+            case '-': *result = a - b; return 1;
+            case '*': *result = a * b; return 1;
+            case '/': if (b != 0) { *result = a / b; return 1; } break;
+        }
+    }
+    return 0;
+}
+
+
+void process_line(char *line) {
+    char var[64], expr[MAX_LINE];
+    int folded_val;
+
+
+    // Check for a simple assignment: int var = expression;
+    if (sscanf(line, "int %[^=]= %[^\n;];", var, expr) == 2) {
+        printf("Expression: %s\n", line);
+
+
+        if (is_constant_expr(expr, &folded_val)) {
+            printf("-> Three Address Code:\n");
+            printf("   t1 = %d\n", folded_val);
+            printf("   %-10s = t1\n", var);
+            printf("-> Optimization Applied: Constant Folding\n\n");
+        } else {
+            printf("-> No constant folding applied.\n\n");
+        }
+    }
+}
+
+
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        printf("Usage: %s <input.c>\n", argv[0]);
+        return 1;
+    }
+
+
+    FILE *fp = fopen(argv[1], "r");
+    if (!fp) {
+        perror("Error opening file");
+        return 1;
+    }
+
+
+    char line[MAX_LINE];
+    printf("____________Constant Folding___________\n\n");
+
+
+    while (fgets(line, sizeof(line), fp)) {
+        process_line(line);
+    }
+
+
+    fclose(fp);
+    return 0;
+}
+
+
+
+
+Input.c :
+int x = 5 + 3;
+int y = 10 - 2;
+int z = a + b;
+int w = 4 * 6;
+
+
+ 
+
+
+
+
+
+
+Or elseeee
+Code.c
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+
+int isNumber(const char *s) {
+    for (int i = 0; s[i]; i++) {
+        if (!isdigit(s[i])) return 0;
+    }
+    return 1;
+}
+
+
+int main() {
+    FILE *fp = fopen("code.txt", "r");
+    if (!fp) {
+        printf("Error opening input file.\n");
+        return 1;
+    }
+
+
+    char a[10], b[10], c[10], op[2];
+    fscanf(fp, "%s = %s %s %s", a, b, op, c);
+    fclose(fp);
+
+
+    printf("____________Constant Folding___________\n");
+
+
+    printf("\nEnter the expression :- %s = %s %s %s\n", a, b, op, c);
+
+
+    printf("\n______________Three Address Code ________\n");
+
+
+    if (isNumber(b) && isNumber(c)) {
+        int val1 = atoi(b);
+        int val2 = atoi(c);
+        int result;
+
+
+        if (strcmp(op, "+") == 0) result = val1 + val2;
+        else if (strcmp(op, "-") == 0) result = val1 - val2;
+        else if (strcmp(op, "*") == 0) result = val1 * val2;
+        else if (strcmp(op, "/") == 0) result = val1 / val2;
+        else {
+            printf("Unsupported operator.\n");
+            return 1;
+        }
+
+
+        printf("Generated: t1 = %d %s %d\n", val1, op, val2);
+        printf("Assignment: %s = t1\n", a);
+
+
+        printf("\n____________Optimization Method Used __________________\n");
+        printf("Constant Folding applied to:\n");
+        printf("    %s %s %s\n", b, op, c);
+
+
+    } else {
+        printf("No constant folding applied.\n");
+    }
+
+
+    return 0;
+}
+
+
+
+
+Code.txt
+res = 5 + 3 + 2
+
+
+
+assignment while if else English sql 
+
+lex.l:
+%{
+#include "parser.tab.h"
+#include <string.h>
+#include <stdlib.h>
+
+#ifndef strdup
+char *strdup(const char *s) {
+    char *d = malloc(strlen(s) + 1);   // allocate memory
+    if (d == NULL) return NULL;        // check for malloc failure
+    strcpy(d, s);                      // copy string
+    return d;
+}
+#endif
+%}
+
+%%
+
+"if"         { return IF; }
+"else"       { return ELSE; }
+"("          { return LPAREN; }
+")"          { return RPAREN; }
+"{"          { return LBRACE; }
+"}"          { return RBRACE; }
+[0-9]+       { yylval.str = strdup(yytext); return NUMBER; }
+[a-zA-Z_][a-zA-Z0-9_]* { yylval.str = strdup(yytext); return ID; }
+"="          { return ASSIGN; }
+"=="         { return EQ; }
+"<"          { return LT; }
+">"          { return GT; }
+"+"          { return PLUS; }
+"-"          { return MINUS; }
+"*"          { return MUL; }
+"/"          { return DIV; }
+";"          { return SEMICOLON; }
+[ \t\n]+     { /* ignore whitespace */ }
+.            { return yytext[0]; }
+
+%%
+
+int yywrap() { return 1; }
+
+parse.y:
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>  
+
+void yyerror(const char *s);
+int yylex();
+void print_indent(int level);
+int indent = 0; // Global indent level
+%}
+
+%union {
+    char* str;    // for ID and others
+}
+%token <str> ID NUMBER
+
+/* Declare operator precedence */
+%left PLUS MINUS
+%left MUL DIV
+%left LT GT EQ
+
+%token IF ELSE LPAREN RPAREN LBRACE RBRACE EQ LT GT PLUS MINUS MUL DIV SEMICOLON ASSIGN
+
+%%
+
+program:
+    if_else_stmt {
+        indent++;
+        /* if_else_stmt printing is handled by its own action */
+        indent--;
+    }
+    ;
+
+if_else_stmt:
+    IF LPAREN condition RPAREN LBRACE stmt_list RBRACE ELSE LBRACE stmt_list RBRACE {
+        print_indent(indent);
+        printf("|-- if_else_stmt\n");
+        indent++;
+            print_indent(indent);
+            printf("|-- IF\n");
+            print_indent(indent);
+            printf("|-- condition\n");
+            indent++;
+                /* condition rule prints its structure */
+            indent--;
+            print_indent(indent);
+            printf("|-- stmt_list (if-block)\n");
+            indent++;
+                /* if stmt_list rule prints its structure */
+            indent--;
+            print_indent(indent);
+            printf("|-- ELSE\n");
+            print_indent(indent);
+            printf("|-- stmt_list (else-block)\n");
+            indent++;
+                /* else stmt_list rule prints its structure */
+            indent--;
+        indent--;
+    }
+    ;
+
+condition:
+    expr LT expr {
+        print_indent(indent);
+        printf("|-- condition\n");
+        indent++;
+            print_indent(indent);
+            printf("|-- expr\n");
+            indent++;
+                /* Left expr printed by expr rule */
+            indent--;
+            print_indent(indent);
+            printf("|-- LT\n");
+            print_indent(indent);
+            printf("|-- expr\n");
+            indent++;
+                /* Right expr printed by expr rule */
+            indent--;
+        indent--;
+    }
+    | expr GT expr {
+        print_indent(indent);
+        printf("|-- condition\n");
+        indent++;
+            print_indent(indent);
+            printf("|-- expr\n");
+            indent++;
+                /* Left expr printed by expr rule */
+            indent--;
+            print_indent(indent);
+            printf("|-- GT\n");
+            print_indent(indent);
+            printf("|-- expr\n");
+            indent++;
+                /* Right expr printed by expr rule */
+            indent--;
+        indent--;
+    }
+    | expr EQ expr {
+        print_indent(indent);
+        printf("|-- condition\n");
+        indent++;
+            print_indent(indent);
+            printf("|-- expr\n");
+            indent++;
+                /* Left expr printed by expr rule */
+            indent--;
+            print_indent(indent);
+            printf("|-- EQ\n");
+            print_indent(indent);
+            printf("|-- expr\n");
+            indent++;
+                /* Right expr printed by expr rule */
+            indent--;
+        indent--;
+    }
+    ;
+
+stmt_list:
+    stmt {
+        print_indent(indent);
+        printf("|-- stmt_list\n");
+        indent++;
+            print_indent(indent);
+            printf("|-- stmt\n");
+        indent--;
+    }
+    | stmt_list stmt {
+        print_indent(indent);
+        printf("|-- stmt_list\n");
+        indent++;
+            print_indent(indent);
+            printf("|-- stmt\n");
+        indent--;
+    }
+    ;
+
+stmt:
+    ID ASSIGN expr SEMICOLON {
+        print_indent(indent);
+        printf("|-- stmt\n");
+        indent++;
+            print_indent(indent);
+            printf("|-- ID: %s\n", $1);
+            print_indent(indent);
+            printf("|-- ASSIGN\n");
+            print_indent(indent);
+            printf("|-- expr\n");
+            indent++;
+                /* expr already prints its contents */
+            indent--;
+            print_indent(indent);
+            printf("|-- SEMICOLON\n");
+        indent--;
+    }
+    ;
+
+expr:
+    expr PLUS expr {
+        print_indent(indent);
+        printf("|-- expr\n");
+        indent++;
+            print_indent(indent);
+            printf("|-- expr\n");
+            indent++;
+                /* Left expr printed by expr rule */
+            indent--;
+            print_indent(indent);
+            printf("|-- PLUS\n");
+            print_indent(indent);
+            printf("|-- expr\n");
+            indent++;
+                /* Right expr printed by expr rule */
+            indent--;
+        indent--;
+    }
+    | expr MINUS expr {
+        print_indent(indent);
+        printf("|-- expr\n");
+        indent++;
+            print_indent(indent);
+            printf("|-- expr\n");
+            indent++;
+                /* Left expr printed by expr rule */
+            indent--;
+            print_indent(indent);
+            printf("|-- MINUS\n");
+            print_indent(indent);
+            printf("|-- expr\n");
+            indent++;
+                /* Right expr printed by expr rule */
+            indent--;
+        indent--;
+    }
+    | expr MUL expr {
+        print_indent(indent);
+        printf("|-- expr\n");
+        indent++;
+            print_indent(indent);
+            printf("|-- expr\n");
+            indent++;
+                /* Left expr printed by expr rule */
+            indent--;
+            print_indent(indent);
+            printf("|-- MUL\n");
+            print_indent(indent);
+            printf("|-- expr\n");
+            indent++;
+                /* Right expr printed by expr rule */
+            indent--;
+        indent--;
+    }
+    | expr DIV expr {
+        print_indent(indent);
+        printf("|-- expr\n");
+        indent++;
+            print_indent(indent);
+            printf("|-- expr\n");
+            indent++;
+                /* Left expr printed by expr rule */
+            indent--;
+            print_indent(indent);
+            printf("|-- DIV\n");
+            print_indent(indent);
+            printf("|-- expr\n");
+            indent++;
+                /* Right expr printed by expr rule */
+            indent--;
+        indent--;
+    }
+    | ID {
+        print_indent(indent);
+        printf("|-- expr\n");
+        indent++;
+            print_indent(indent);
+            printf("|-- ID: %s\n", $1);
+        indent--;
+    }
+    | NUMBER {
+        print_indent(indent);
+        printf("|-- expr\n");
+        indent++;
+            print_indent(indent);
+            printf("|-- NUMBER: %s\n", $1);
+        indent--;
+    }
+    ;
+
+%%
+
+void yyerror(const char *s) {
+    printf("Error: %s\n", s);
+}
+
+void print_indent(int level) {
+    for (int i = 0; i < level; i++) {
+        printf("    ");
+    }
+}
+
+int main() {
+    printf("Enter an if-else statement:\n");
+    yyparse();
+    return 0;
+}
+
+
+cmd:
+flex lex.l
+bison -d parser.y
+gcc lex.yy.c parser.tab.c -o ifelse_parser
+./ifelse_parser
+
+if (x < 10) { x = x + 1; } else { x = x - 1; }
+if (x > 5) { x = x + 1; y = y * 2; } else { x = x - 1; z = 0; }
+
+
+while proper:
+
+llexical.l:
+%{
+#include "paser.tab.h"
+#include <string.h>
+#include <stdlib.h>
+
+#ifndef strdup
+char *strdup(const char *s) {
+    char *d = malloc(strlen(s) + 1);   // allocate memory
+    if (d == NULL) return NULL;        // check for malloc failure
+    strcpy(d, s);                      // copy string
+    return d;
+}
+#endif
+%}
+
+
+%%
+
+"while"      { return WHILE; }
+"("          { return LPAREN; }
+")"          { return RPAREN; }
+"{"          { return LBRACE; }
+"}"          { return RBRACE; }
+[0-9]+       { yylval.str = strdup(yytext); return NUMBER; }
+[a-zA-Z_][a-zA-Z0-9_]* { yylval.str = strdup(yytext); return ID; }
+"="          { return ASSIGN; }
+"=="         { return EQ; }
+"<"          { return LT; }
+">"          { return GT; }
+"+"          { return PLUS; }
+"-"          { return MINUS; }
+"*"          { return MUL; }
+"/"          { return DIV; }
+";"          { return SEMICOLON; }
+[ \t\n]+     { /* ignore whitespace */ }
+.            { return yytext[0]; }
+
+%%
+
+int yywrap() { return 1; }
+
+
+paser.y:
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>  
+
+void yyerror(const char *s);
+int yylex();
+void print_indent(int level);
+int indent = 0; // Global indent level
+%}
+
+%union {
+    char* str;    // for ID and others
+}
+%token <str> ID NUMBER
+
+/* Declare operator precedence */
+%left PLUS MINUS
+%left MUL DIV
+%left LT GT EQ
+
+%token WHILE LPAREN RPAREN LBRACE RBRACE EQ LT GT PLUS MINUS MUL DIV SEMICOLON ASSIGN
+
+%%
+
+program:
+    while_stmt {
+       //printf("\nParse Tree:\n");
+       //printf("|-- program\n");
+        indent++;
+        /* while_stmt printing is handled by its own action */
+        indent--;
+    }
+    ;
+
+while_stmt:
+    WHILE LPAREN condition RPAREN LBRACE stmt_list RBRACE {
+        print_indent(indent);
+        printf("|-- while_stmt\n");
+        indent++;
+            print_indent(indent);
+            printf("|-- WHILE\n");
+            print_indent(indent);
+            printf("|-- condition\n");
+            indent++;
+                /* condition rule prints its structure */
+            indent--;
+            print_indent(indent);
+            printf("|-- stmt_list\n");
+            indent++;
+                /* stmt_list rule prints its structure */
+            indent--;
+            print_indent(indent);
+            printf("|-- RBRACE\n");
+        indent--;
+    }
+    ;
+
+condition:
+    expr LT expr {
+        print_indent(indent);
+        printf("|-- expr\n");
+        indent++;
+            /* Left expr printed by expr rule */
+        indent--;
+        print_indent(indent);
+        printf("|-- LT\n");
+        print_indent(indent);
+        printf("|-- expr\n");
+        indent++;
+            /* Right expr printed by expr rule */
+        indent--;
+    }
+    ;
+
+/* Use a standard left-recursive definition (without an empty alternative)
+   to avoid reduce/reduce conflicts.
+   In the base case, we simulate an extra branch showing an empty additional statement.
+*/
+stmt_list:
+    stmt {
+        print_indent(indent);
+        printf("|-- stmt_list\n");
+        indent++;
+            /* Print the stmt details (already printed in stmt rule) */
+            print_indent(indent);
+            printf("|-- stmt\n");
+            print_indent(indent+1);
+            printf("|-- (empty, if any additional statement)\n");
+        indent--;
+    }
+    | stmt_list stmt {
+        print_indent(indent);
+        printf("|-- stmt_list\n");
+        indent++;
+            print_indent(indent);
+            printf("|-- stmt\n");
+        indent--;
+    }
+    ;
+
+expr:
+    expr PLUS expr {
+        print_indent(indent);
+        printf("|-- expr + expr\n");
+    }
+    | ID {
+        print_indent(indent);
+        printf("|-- ID: %s\n", $1);
+    }
+    | NUMBER {
+        print_indent(indent);
+        printf("|-- NUMBER: %s\n", $1);
+    }
+    ;
+
+stmt:
+    ID ASSIGN expr SEMICOLON {
+        print_indent(indent);
+        printf("|-- stmt\n");
+        indent++;
+            print_indent(indent);
+            printf("|-- ID: %s\n", $1);
+            print_indent(indent);
+            printf("|-- ASSIGN\n");
+            /* expr already prints its contents */
+            print_indent(indent);
+            printf("|-- SEMICOLON\n");
+        indent--;
+    }
+
+
+%%
+
+void yyerror(const char *s) {
+    printf("Error: %s\n", s);
+}
+
+void print_indent(int level) {
+    for (int i = 0; i < level; i++) {
+        printf("    ");
+    }
+}
+
+int main() {
+    printf("Enter a while statement:\n");
+    yyparse();
+    return 0;
+}
+
+cmd:
+while (i < 5) { x = 10; }
+
+cmds:
+
+bison -d parser.y     
+flex lexical.l         
+gcc parser.tab.c lex.yy.c -o error.exe 
+./error.exe            
+
+
+sql:
+
+lex.l:
+%{
+#include "parser.tab.h"
+#include <string.h>
+#include <stdlib.h>
+
+#ifndef strdup
+char *strdup(const char *s) {
+    char *d = malloc(strlen(s) + 1);
+    if (d == NULL) return NULL;
+    strcpy(d, s);
+    return d;
+}
+#endif
+%}
+
+%%
+
+"SELECT"            { return SELECT; }
+"FROM"              { return FROM; }
+","                 { return COMMA; }
+";"                 { return SEMICOLON; }
+[a-zA-Z_][a-zA-Z0-9_]*  { yylval.str = strdup(yytext); return IDENTIFIER; }
+[ \t\r\n]+          { /* skip whitespace */ }
+.                   { return yytext[0]; }
+
+%%
+int yywrap() { return 1; }
+
+parser.y:
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+void yyerror(const char *s);
+int yylex();
+void print_indent(int level);
+int indent = 0;
+%}
+
+%union {
+    char* str;
+}
+
+%token <str> IDENTIFIER
+%token SELECT FROM COMMA SEMICOLON
+
+%%
+
+query:
+    SELECT select_list FROM IDENTIFIER SEMICOLON {
+        print_indent(indent);
+        printf("|-- SELECT statement\n");
+        indent++;
+        print_indent(indent);
+        printf("|-- Columns:\n");
+        indent++;
+        // Columns printed in select_list rule
+        indent--;
+        print_indent(indent);
+        printf("|-- Table: %s\n", $4);
+        indent--;
+    }
+    ;
+
+select_list:
+    IDENTIFIER {
+        print_indent(indent);
+        printf("|-- Column: %s\n", $1);
+    }
+    | select_list COMMA IDENTIFIER {
+        print_indent(indent);
+        printf("|-- Column: %s\n", $3);
+    }
+    ;
+
+%%
+
+void yyerror(const char *s) {
+    printf("Syntax Error: %s\n", s);
+}
+
+void print_indent(int level) {
+    for (int i = 0; i < level; i++) {
+        printf("    ");
+    }
+}
+
+int main() {
+    printf("Enter a SELECT statement:\n");
+    yyparse();
+    return 0;
+}
+
+cmd:
+inp:
+SELECT name, age FROM users;
+
+bison -d parser.y            
+flex lex.l                   
+gcc parser.tab.c lex.yy.c -o sql_parser.exe 
+sql_parser.exe              
+
+
+
+
+
+
+English:
+lex.l
+%{
+#include "parser.tab.h"
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
+
+#ifndef strdup
+char *strdup(const char *s) {
+    char *d = malloc(strlen(s) + 1);
+    if (d == NULL) return NULL;
+    strcpy(d, s);
+    return d;
+}
+#endif
+
+// Convert to lowercase for case-insensitive match
+char *to_lower(const char *s) {
+    char *lower = strdup(s);
+    for (int i = 0; lower[i]; i++) {
+        lower[i] = tolower(lower[i]);
+    }
+    return lower;
+}
+%}
+
+%%
+
+[aA]|[tT][hH][eE] {
+    char *word = to_lower(yytext);
+    yylval.str = word;
+    return ARTICLE;
+}
+
+
+[bB][lL][aA][cC][kK]|[wW][hH][iI][tT][eE]|[hH][aA][pP][pP][yY]|[aA][nN][gG][rR][yY] {
+    yylval.str = to_lower(yytext);
+    return ADJECTIVE;
+}
+
+
+[cC][aA][tT][sS]?|[dD][oO][gG][sS]?|[fF][iI][sS][hH]|[fF][oO][oO][dD][sS]? {
+    yylval.str = to_lower(yytext);
+    return NOUN;
+}
+
+
+[eE][aA][tT][sS]?|[lL][oO][vV][eE][sS]?|[hH][aA][tT][eE][sS]? {
+    yylval.str = to_lower(yytext);
+    return VERB;
+}
+
+
+[ \t\r\n]+   { /* skip whitespace */ }
+[.?!]        { /* ignore punctuation */ }
+
+[a-zA-Z]+    {
+    char *word = to_lower(yytext);
+   // printf("Unknown word: %s\n", word);
+    free(word);
+    return 0;
+}
+
+.            { return yytext[0]; }
+
+%%
+int yywrap() { return 1; }
+
+parser.y:
+%{
+#include <stdio.h>
+#include <stdlib.h>
+
+void yyerror(const char *s);
+int yylex();
+%}
+
+%union {
+    char* str;
+}
+
+%token <str> ARTICLE NOUN VERB ADJECTIVE
+%type <str> sentence opt_adj
+
+
+%%
+
+sentence:
+    ARTICLE opt_adj NOUN VERB NOUN {
+        printf("Valid sentence structure:\n");
+        printf("Article: %s\n", $1);
+        if ($2) printf("Adjective: %s\n", $2);
+        printf("Subject: %s\n", $3);
+        printf("Verb: %s\n", $4);
+        printf("Object: %s\n", $5);
+    }
+    ;
+
+opt_adj:
+    /* empty */    { $$ = NULL; }
+    | ADJECTIVE    { $$ = $1; }
+    ;
+
+%%
+
+void yyerror(const char *s) {
+    printf("Syntax error: %s\n", s);
+}
+
+int main() {
+    printf("Enter a sentence:\n");
+    yyparse();
+    return 0;
+}
+
+
+
+cmd:
+
+bison -d parser.y          
+flex lex.l                  
+gcc parser.tab.c lex.yy.c -o english_parser.exe
+english_parser.exe
+
+
+inp:
+A happy dogs eats food! [correct]
+
+Happy dog eats fish [wrong,missing article]
+
+
+
+
+
+constant propagation:
+
+code.c
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#define MAX 100
+
+struct Quadruple {
+    char op[5], arg1[10], arg2[10], result[10];
+};
+
+int isConstant(char *s) {
+    for (int i = 0; i < strlen(s); i++) {
+        if (!(s[i] >= '0' && s[i] <= '9')) return 0;
+    }
+    return 1;
+}
+
+int main() {
+    struct Quadruple q[MAX], optimized[MAX];
+    int n, i, j, k = 0, isCommon;
+    char constMap[MAX][10];   // holds result name
+    char constVal[MAX][10];   // holds its constant value
+    int constCount = 0;
+
+    FILE *fp = fopen("input.txt", "r");
+    if (fp == NULL) {
+        printf("Error: Cannot open input.txt\n");
+        return 1;
+    }
+
+    fscanf(fp, "%d", &n);
+    for (i = 0; i < n; i++) {
+        fscanf(fp, "%s %s %s %s", q[i].op, q[i].arg1, q[i].arg2, q[i].result);
+    }
+    fclose(fp);
+
+    for (i = 0; i < n; i++) {
+        // Constant propagation: replace arg1 and arg2 if previously known constants
+        for (j = 0; j < constCount; j++) {
+            if (strcmp(q[i].arg1, constMap[j]) == 0) {
+                strcpy(q[i].arg1, constVal[j]);
+            }
+            if (strcmp(q[i].arg2, constMap[j]) == 0) {
+                strcpy(q[i].arg2, constVal[j]);
+            }
+        }
+
+        // Common subexpression elimination (commutative operations)
+        isCommon = 0;
+        for (j = 0; j < k; j++) {
+            if (strcmp(q[i].op, optimized[j].op) == 0 &&
+               ((strcmp(q[i].arg1, optimized[j].arg1) == 0 && strcmp(q[i].arg2, optimized[j].arg2) == 0) ||
+                (strcmp(q[i].arg1, optimized[j].arg2) == 0 && strcmp(q[i].arg2, optimized[j].arg1) == 0))) {
+                printf("Eliminating common sub-expression: %s %s %s %s\n",
+                       q[i].op, q[i].arg1, q[i].arg2, q[i].result);
+                printf("Reusing result from %s\n", optimized[j].result);
+
+                // Replace with result of common sub-expression
+                strcpy(q[i].op, "=");
+                strcpy(q[i].arg1, optimized[j].result);
+                strcpy(q[i].arg2, "-");
+                isCommon = 1;
+                break;
+            }
+        }
+
+        // Track constants for propagation
+        if (strcmp(q[i].op, "=") == 0 && isConstant(q[i].arg1)) {
+            strcpy(constMap[constCount], q[i].result);
+            strcpy(constVal[constCount], q[i].arg1);
+            constCount++;
+        }
+
+        if (!isCommon) {
+            optimized[k++] = q[i];
+        }
+    }
+
+    printf("\nOptimized Quadruples:\n");
+    for (i = 0; i < n; i++) {
+        printf("%s\t%s\t%s\t%s\n", q[i].op, q[i].arg1, q[i].arg2, q[i].result);
+    }
+
+    return 0;
+}
+
+
+
+input.txt:
+3
+= 5 - x
++ x 2 y
+* y x z
+
+
+
+cmd:
+gcc code.c -o code.exe
+.\code.exe
+
+
+
+
+constant subexpression:
+
+code.c
+#include <stdio.h>
+#include <string.h>
+#define MAX 100
+
+struct Quadruple {
+    char op[5], arg1[10], arg2[10], result[10];
+};
+
+int main() {
+    struct Quadruple q[MAX], optimized[MAX];
+    int n, i, j, k = 0, isCommon;
+
+    FILE *fp = fopen("input3.txt", "r");
+    if (fp == NULL) {
+        printf("Error: Could not open input.txt\n");
+        return 1;
+    }
+
+    fscanf(fp, "%d", &n); // Read number of quadruples
+
+    for (i = 0; i < n; i++) {
+        fscanf(fp, "%s %s %s %s", q[i].op, q[i].arg1, q[i].arg2, q[i].result);
+    }
+    fclose(fp);
+
+    for (i = 0; i < n; i++) {
+        isCommon = 0;
+
+        for (j = 0; j < k; j++) {
+            // Check if operation and arguments match (commutative operations allowed here)
+            if (strcmp(q[i].op, optimized[j].op) == 0 &&
+               ((strcmp(q[i].arg1, optimized[j].arg1) == 0 && strcmp(q[i].arg2, optimized[j].arg2) == 0) ||
+                (strcmp(q[i].arg1, optimized[j].arg2) == 0 && strcmp(q[i].arg2, optimized[j].arg1) == 0))) {
+                printf("Eliminating common sub-expression: %s %s %s %s\n",
+                       q[i].op, q[i].arg1, q[i].arg2, q[i].result);
+                printf("Reusing result from %s\n", optimized[j].result);
+
+                // Replace with result of the common sub-expression
+                strcpy(q[i].op, "=");
+                strcpy(q[i].arg1, optimized[j].result);
+                strcpy(q[i].arg2, "-");
+                isCommon = 1;
+                break;
+            }
+        }
+
+        // If not common, keep in optimized list
+        if (!isCommon) {
+            optimized[k++] = q[i];
+        }
+    }
+
+    printf("\nOptimized Quadruples:\n");
+    for (i = 0; i < n; i++) {
+        printf("%s\t%s\t%s\t%s\n", q[i].op, q[i].arg1, q[i].arg2, q[i].result);
+    }
+
+    return 0;
+}
+
+input.txt
+5
++ a b t1
++ a b t2
+* t1 c t3
++ a b t4
+= t2 - t5
+
+
+
+
+
+
+
+
+
+
+
+
+COUNT:
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+#define MAX_WORDS 1000
+#define MAX_LINES 100
+
+typedef struct {
+    char word[100];
+    int count;
+    int lines[MAX_LINES];
+    int lineCount;
+} WordEntry;
+
+WordEntry words[MAX_WORDS];
+int word_count = 0;
+int line_no = 1;
+
+void toLower(char *s) {
+    for (int i = 0; s[i]; i++) {
+        s[i] = tolower(s[i]);
+    }
+}
+
+void addWord(char *text) {
+    toLower(text);
+    for (int i = 0; i < word_count; i++) {
+        if (strcmp(words[i].word, text) == 0) {
+            words[i].count++;
+            if (words[i].lines[words[i].lineCount - 1] != line_no) {
+                words[i].lines[words[i].lineCount++] = line_no;
+            }
+            return;
+        }
+    }
+    strcpy(words[word_count].word, text);
+    words[word_count].count = 1;
+    words[word_count].lines[0] = line_no;
+    words[word_count].lineCount = 1;
+    word_count++;
+}
+%}
+
+%%
+[a-zA-Z]+       { addWord(yytext); }
+\n              { line_no++; }
+[ \t\r]+        { /* ignore whitespace */ }
+.               { /* ignore punctuation */ }
+%%
+
+int yywrap() {
+    return 1;
+}
+
+int main(int argc, char **argv) {
+    FILE *file = fopen("input.txt", "r");
+    if (!file) {
+        printf("Could not open the file!\n");
+        return 1;
+    }
+
+    yyin = file;
+    yylex();
+    fclose(file);
+
+    printf("\nWord\t\tCount\tLine Numbers\n");
+    printf("-------------------------------------------------------------\n");
+    for (int i = 0; i < word_count; i++) {
+        printf("%-15s\t%-5d\t", words[i].word, words[i].count);
+        for (int j = 0; j < words[i].lineCount; j++) {
+            printf("%d ", words[i].lines[j]);
+        }
+        printf("\n");
+    }
+
+    return 0;
+}
+
+
+input.txt:
+Hello world
+This is a test.
+Hello again world.
+vu
+
+
+cmd:
+flex lexer.l
+gcc lex.yy.c -o count.exe
+.\count.exe
+
+
+
+
+
+
+ERROR DETECTION 
+
+python:
+lexer.l
+%{
+#include <stdio.h>
+#include <stdlib.h>
+
+int line_num = 1;
+int unterminated_string = 0;
+%}
+
+DIGIT       [0-9]
+LETTER      [a-zA-Z_]
+IDENTIFIER  {LETTER}({LETTER}|{DIGIT})*
+INTEGER     {DIGIT}+
+FLOAT       {DIGIT}+"."{DIGIT}*
+OPERATOR    "+"|"-"|""|"*"|"/"|"//"|"%"|"@"|"="|"=="|"!="|"<"|">"|"<="|">="|"and"|"or"|"not"|"is"|"in"
+SEPARATOR   ":"|","|"("|")"|"["|"]"|"{"|"}"|"."|";"
+COMMENT     "#".*
+WHITESPACE  [ \t\n]
+STRING      \"([^"\\\n]|\\.)\"|\'([^'\\\n]|\\.)\'
+TRIPLE_STRING \"\"\"([^\\]|\\.)\"\"\"|\'\'\'([^\\]|\\.)\'\'\'
+
+%%
+
+{WHITESPACE}   { if (yytext[0] == '\n') line_num++; }
+{COMMENT}      { /* Ignore comments */ }
+
+"def"         { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"class"       { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"if"          { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"elif"        { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"else"        { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"while"       { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"for"         { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"try"         { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"except"      { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"finally"     { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"return"      { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"import"      { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"from"        { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"as"          { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"pass"        { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"break"       { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"continue"    { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"None"        { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"True"        { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"False"       { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+
+{IDENTIFIER}  { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "IDENTIFIER", yytext); }
+{INTEGER}     { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "INTEGER", yytext); }
+{FLOAT}       { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "FLOAT", yytext); }
+{OPERATOR}    { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "OPERATOR", yytext); }
+{SEPARATOR}   { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "SEPARATOR", yytext); }
+
+\"\"\"[^\"]*$  { 
+                printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "ERROR", "Unterminated triple-quoted string");
+                unterminated_string = 1;
+              }
+\'\'\'[^\']*$  { 
+                printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "ERROR", "Unterminated triple-quoted string");
+                unterminated_string = 1;
+              }
+\"[^"\n]*$    { 
+                printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "ERROR", "Unterminated string");
+                unterminated_string = 1;
+              }
+\'[^'\n]*$    { 
+                printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "ERROR", "Unterminated string");
+                unterminated_string = 1;
+              }
+
+{STRING}      { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "STRING", yytext); }
+{TRIPLE_STRING} { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "STRING", yytext); }
+
+.             { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "ERROR", "Undefined token"); }
+
+%%
+
+int yywrap() { return 1; }
+
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <input_file.py>\n", argv[0]);
+        return 1;
+    }
+
+    FILE *input = fopen(argv[1], "r");
+    if (!input) {
+        perror("Error opening file");
+        return 1;
+    }
+
+    yyin = input;
+    
+    printf("%-8s%-20s%-15s%-15s\n", "Line", "Lexeme", "Token", "Token Value");
+    printf("-------------------------------------------------\n");
+    
+    yylex();
+    
+    if (unterminated_string) {
+        fprintf(stderr, "Error: Unterminated string found in the file.\n");
+    }
+    
+    fclose(input);
+    return 0;
+}
+
+py_sample.txt
+
+def greet():
+    print('Hello
+    return 42
+    $weird_token
+
+
+flex lex.l
+gcc lex.yy.c -o run.exe 
+./run.exe py_sample.txt
+
+
+
+C ERROR DETECTION:
+
+lexer.l
+
+%{
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+int line_num = 1;
+int unterminated_string = 0;
+%}
+
+DIGIT       [0-9]
+LETTER      [a-zA-Z]
+IDENTIFIER  {LETTER}({LETTER}|{DIGIT}|_)*
+INTEGER     {DIGIT}+
+REAL        {DIGIT}+"."{DIGIT}*
+OPERATOR    "+"|"-"|"*"|"/"|"="|"=="|"!="|"<"|">"|"<="|">="|"&&"|"||"|"!"
+SEPARATOR   ";"|","|"("|")"|"{"|"}"|"["|"]"
+COMMENT     "/"([^]|""+[^/])""+"/"|"//".*
+WHITESPACE  [ \t\n]
+STRING      \"([^"\\\n]|\\.)*\"
+
+%%
+
+{WHITESPACE}   { if (yytext[0] == '\n') line_num++; }
+{COMMENT}      { /* Ignore comments */ }
+
+"#include"     { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "PREPROCESSOR", yytext); }
+"#define"      { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "PREPROCESSOR", yytext); }
+
+"int"          { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"float"        { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"char"         { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"void"         { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"if"           { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"else"         { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"while"        { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"for"          { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"return"       { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"break"        { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"continue"     { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+
+{IDENTIFIER}   { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "IDENTIFIER", yytext); }
+{INTEGER}      { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "INTEGER", yytext); }
+{REAL}         { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "REAL", yytext); }
+{OPERATOR}     { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "OPERATOR", yytext); }
+{SEPARATOR}    { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "SEPARATOR", yytext); }
+
+\"[^"\n]*$     { 
+                 printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "ERROR", "Unterminated string"); 
+                 unterminated_string = 1;
+               }
+
+{STRING}       { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "STRING", yytext); }
+
+.              { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "ERROR", "Undefined token"); }
+
+%%
+
+int yywrap() {
+    return 1;
+}
+
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <input_file>\n", argv[0]);
+        return 1;
+    }
+
+    FILE *input = fopen(argv[1], "r");
+    if (!input) {
+        perror("Error opening file");
+        return 1;
+    }
+
+    yyin = input;
+    
+    // Print table header
+    printf("%-8s%-20s%-15s%-15s\n", "Line", "Lexeme", "Token", "Token Value");
+    printf("-------------------------------------------------\n");
+    
+    yylex();
+    
+    if (unterminated_string) {
+        fprintf(stderr, "Error: Unterminated string found in the file.\n");
+    }
+    
+    fclose(input);
+    return 0;
+}
+
+c_sample.txt:
+
+int main() {
+    float x = 12;
+    char* name = "Hello;
+    @
+}
+
+
+cmd:
+flex lexer.l
+gcc lex.yy.c -o run.exe 
+./run.exe c_sample.txt
+
+
+
+
+JSON ERROR DETECTION:
+lexer,l
+
+%{
+#include <stdio.h>
+#include <stdlib.h>
+
+int line_num = 1;
+int unterminated_string = 0;
+%}
+
+DIGIT       [0-9]
+LETTER      [a-zA-Z_]
+INTEGER     -?{DIGIT}+
+FLOAT       -?{DIGIT}+"."{DIGIT}+([eE][+-]?{DIGIT}+)?
+WHITESPACE  [ \t\n\r]
+STRING      \"([^"\\\n]|\\.)*\"
+
+%%
+
+{WHITESPACE}   { if (yytext[0] == '\n') line_num++; }
+
+"true"        { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "LITERAL", "true"); }
+"false"       { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "LITERAL", "false"); }
+"null"        { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "LITERAL", "null"); }
+
+"{"           { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "PUNCTUATION", "{"); }
+"}"           { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "PUNCTUATION", "}"); }
+"["           { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "PUNCTUATION", "["); }
+"]"           { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "PUNCTUATION", "]"); }
+":"           { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "PUNCTUATION", ":"); }
+","           { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "PUNCTUATION", ","); }
+
+{INTEGER}     { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "NUMBER", yytext); }
+{FLOAT}       { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "NUMBER", yytext); }
+
+\"[^"\n]*$    { 
+                printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "ERROR", "Unterminated string");
+                unterminated_string = 1;
+              }
+
+{STRING}      { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "STRING", yytext); }
+
+.             { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "ERROR", "Undefined token"); }
+
+%%
+
+int yywrap() { return 1; }
+
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <input_file.json>\n", argv[0]);
+        return 1;
+    }
+
+    FILE *input = fopen(argv[1], "r");
+    if (!input) {
+        perror("Error opening file");
+        return 1;
+    }
+
+    yyin = input;
+    
+    printf("%-8s%-20s%-15s%-15s\n", "Line", "Lexeme", "Token", "Token Value");
+    printf("-------------------------------------------------\n");
+    
+    yylex();
+    
+    if (unterminated_string) {
+        fprintf(stderr, "Error: Unterminated string found in the file.\n");
+    }
+    
+    fclose(input);
+    return 0;
+}
+
+
+
+json_sample.txts
+{
+  "name": "Alice,
+  "age": 30,
+  "valid": true,
+  !unexpected
+}
+
+
+cmd:
+flex lex.l
+gcc lex.yy.c -o run.exe 
+./run.exe json_sample.txt
+
+
+
+SQL ERROR DETECTION:
+
+lexer.l
+%{
+#include <stdio.h>
+#include <stdlib.h>
+
+int line_num = 1;
+int unterminated_string = 0;
+%}
+
+DIGIT       [0-9]
+LETTER      [a-zA-Z_]
+IDENTIFIER  {LETTER}({LETTER}|{DIGIT})*
+INTEGER     {DIGIT}+
+FLOAT       {DIGIT}+"."{DIGIT}*
+OPERATOR    "="|"!="|"<>"|"<"|">"|"<="|">="|"+"|"-"|"*"|"/"|"%"
+SEPARATOR   ","|"("|")"|";"
+WHITESPACE  [ \t\n]
+STRING      \'([^\'\\\n]|\\.)*\'
+COMMENT     "--".|"/"([^]|""+[^/])"*"+"/"
+
+%%
+
+{WHITESPACE}   { if (yytext[0] == '\n') line_num++; }
+{COMMENT}      { /* Ignore comments */ }
+
+"SELECT"     { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"FROM"       { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"WHERE"      { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"INSERT"     { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"INTO"       { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"VALUES"     { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"UPDATE"     { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"DELETE"     { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"CREATE"     { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"TABLE"      { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"ALTER"      { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"DROP"       { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"JOIN"       { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"INNER"      { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"OUTER"      { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"LEFT"       { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"RIGHT"      { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"GROUP BY"   { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"ORDER BY"   { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"HAVING"     { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"AND"        { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"OR"         { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"NOT"        { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+"NULL"       { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "KEYWORD", yytext); }
+
+{IDENTIFIER} { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "IDENTIFIER", yytext); }
+{INTEGER}    { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "INTEGER", yytext); }
+{FLOAT}      { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "FLOAT", yytext); }
+{OPERATOR}   { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "OPERATOR", yytext); }
+{SEPARATOR}  { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "SEPARATOR", yytext); }
+
+\'[^'\n]*$   { 
+               printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "ERROR", "Unterminated string");
+               unterminated_string = 1;
+             }
+
+{STRING}     { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "STRING", yytext); }
+
+.            { printf("%-8d%-20s%-15s%-15s\n", line_num, yytext, "ERROR", "Undefined token"); }
+
+%%
+
+int yywrap() { return 1; }
+
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <input_file.sql>\n", argv[0]);
+        return 1;
+    }
+
+    FILE *input = fopen(argv[1], "r");
+    if (!input) {
+        perror("Error opening file");
+        return 1;
+    }
+
+    yyin = input;
+    
+    printf("%-8s%-20s%-15s%-15s\n", "Line", "Lexeme", "Token", "Token Value");
+    printf("-------------------------------------------------\n");
+    
+    yylex();
+    
+    if (unterminated_string) {
+        fprintf(stderr, "Error: Unterminated string found in the file.\n");
+    }
+    
+    fclose(input);
+    return 0;
+}
+
+
+sql_sample.txt
+SELECT * FROM users WHERE name = "John;
+# comment line
+%unknown
+
+
+cmd:
+flex lex.l
+gcc lex.yy.c -o run.exe 
+./run.exe sql_sample.txt
+
+
+calculator:
+lex.l:
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include "ass7.tab.h"  // Correctly declares yylval as YYSTYPE
+%}
+
+%%
+
+[0-9]+      { yylval.val = atoi(yytext); return NUMBER; }
+[\t ]+      ;                 // Ignore whitespace
+\n          return 0;         // End input on newline
+.           return yytext[0]; // Return single characters
+
+%%
+
+int yywrap() {
+    return 1;
+}
+
+
+parser.y:
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int flag = 0;
+
+int yylex(void);
+void yyerror(const char *s);
+
+typedef struct Node {
+    char label[50];
+    struct Node *left, *right;
+    int val;
+} Node;
+
+// Function declarations
+Node* createNode(const char *label, Node* left, Node* right);
+void printParseTree(Node* root, int depth);
+void freeTree(Node* root);
+
+// Root of parse tree
+Node* root = NULL;
+%}
+
+%union {
+    int val;
+    struct Node* node;
+}
+
+%token <val> NUMBER
+%type  <node> E
+
+%left '+' '-'
+%left '*' '/' '%'
+%left '(' ')'
+
+%%
+
+ArithmeticExpression:
+    E {
+        root = $1;
+    }
+;
+
+E:
+      E '+' E {
+          $$ = createNode("+", $1, $3);
+          $$->val = $1->val + $3->val;
+      }
+    | E '-' E {
+          $$ = createNode("-", $1, $3);
+          $$->val = $1->val - $3->val;
+      }
+    | E '*' E {
+          $$ = createNode("*", $1, $3);
+          $$->val = $1->val * $3->val;
+      }
+    | E '/' E {
+          $$ = createNode("/", $1, $3);
+          $$->val = $1->val / $3->val;
+      }
+    | E '%' E {
+          $$ = createNode("%", $1, $3);
+          $$->val = $1->val % $3->val;
+      }
+    | '(' E ')' {
+          $$ = createNode("()", $2, NULL);
+          $$->val = $2->val;
+      }
+    | NUMBER {
+          char buffer[20];
+          sprintf(buffer, "%d", $1);
+          $$ = createNode(buffer, NULL, NULL);
+          $$->val = $1;
+      }
+;
+
+%%
+
+Node* createNode(const char *label, Node* left, Node* right) {
+    Node* newNode = (Node*) malloc(sizeof(Node));
+    strcpy(newNode->label, label);
+    newNode->left = left;
+    newNode->right = right;
+    newNode->val = 0;
+    return newNode;
+}
+
+void printParseTree(Node* root, int depth) {
+    if (!root) return;
+
+    for (int i = 0; i < depth; i++)
+        printf("  ");  // Two spaces per level
+
+    printf("|-- %s\n", root->label);
+
+    printParseTree(root->left, depth + 1);
+    printParseTree(root->right, depth + 1);
+}
+
+
+void freeTree(Node* root) {
+    if (!root) return;
+    freeTree(root->left);
+    freeTree(root->right);
+    free(root);
+}
+
+void yyerror(const char *s) {
+    printf("\nEntered arithmetic expression is Invalid\n\n");
+    flag = 1;
+}
+
+int main() {
+    printf("Enter Any Arithmetic Expression which can have operations Addition, Subtraction, Multiplication, Division, Modulus and Round brackets:\n");
+
+    yyparse();
+
+    if (flag == 0 && root != NULL) {
+        printf("\nResult = %d\n", root->val);
+        printf("\nEntered arithmetic expression is Valid\n");
+        printf("\nParse Tree\n===========================================\n");
+        printParseTree(root, 0);
+    }
+
+    freeTree(root);
+    return 0;
+}
+
+
+flex ass7.l     
+bison -d ass7.y
+gcc -o ass7 ass7.tab.c lex.yy.c 
+./ass7         
+
+
+
+optimization all in one:
+
+= 5 x
+= 10 y
++ x y t1
+* x y t2
++ x y t3
+= 5 z
++ z y t4  
+* x y t5
++ 2 3 t6
+* 4 5 t7
++ 2 3 t8
+= 10 w
++ w z t9
+* w z t10
+
+
+code.c:
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+#include <ctype.h>
+
+#define MAX_QUADS 500
+#define MAX_STR 100
+#define MAX_BLOCKS 100
+
+
+typedef struct {
+    char op[20];
+    char arg1[MAX_STR];
+    char arg2[MAX_STR];
+    char result[MAX_STR];
+    bool eliminated; 
+    bool is_leader; 
+} Quadruple;
+
+
+typedef struct {
+    int start_quad; 
+    int end_quad;   
+    int successors[2]; 
+    int num_successors;
+} BasicBlock;
+
+
+Quadruple quad_list[MAX_QUADS];
+int quad_count = 0;
+BasicBlock blocks[MAX_BLOCKS];
+int block_count = 0;
+
+
+bool readQuadsFromFile(const char* filename);
+void printQuads(const char* title, bool show_eliminated);
+void identifyBasicBlocks();
+void printBasicBlocks();
+void printControlFlowGraph();
+
+
+void commonSubexpressionElimination();
+void constantFoldingOptimization(); 
+void constantPropagationOptimization(); 
+void deadCodeElimination();
+void copyPropagation();
+
+bool isConstant(const char *s);
+int evaluateExpression(const char *op, int c1, int c2);
+
+
+bool readQuadsFromFile(const char* filename) {
+    FILE* fp = fopen(filename, "r");
+    if (!fp) {
+        perror("Error opening Quad input file");
+        return false;
+    }
+    printf("Reading Quads from %s...\n", filename);
+    quad_count = 0;
+    char line[100]; // Use MAX_LINE defined earlier
+
+    while (fgets(line, sizeof(line), fp) && quad_count < MAX_QUADS) {
+        line[strcspn(line, "\r\n")] = 0; // Remove trailing newline
+        if (strlen(line) == 0) continue; // Skip empty lines
+
+        char* parts[4] = {NULL, NULL, NULL, NULL}; // Pointers to parts within the line buffer
+        char* current_pos = line;
+        int part_index = 0;
+
+        
+        while(part_index < 4 && current_pos != NULL && *current_pos != '\0') {
+             parts[part_index++] = current_pos;
+             char* next_space = strchr(current_pos, ' ');
+             if (next_space != NULL) {
+                 *next_space = '\0';
+                 current_pos = next_space + 1; // Move to the start of the next part
+             } else {
+                 // This is the last part
+                 current_pos = NULL; // Stop the loop
+             }
+        }
+
+     
+        if (parts[0]) { // Op must exist
+            strncpy(quad_list[quad_count].op, parts[0], 19);
+            quad_list[quad_count].op[19] = '\0';
+
+            strncpy(quad_list[quad_count].arg1, (parts[1] && strcmp(parts[1], "-") != 0) ? parts[1] : "", MAX_STR - 1);
+            quad_list[quad_count].arg1[MAX_STR - 1] = '\0';
+
+            strncpy(quad_list[quad_count].arg2, (parts[2] && strcmp(parts[2], "-") != 0) ? parts[2] : "", MAX_STR - 1);
+            quad_list[quad_count].arg2[MAX_STR - 1] = '\0';
+
+            strncpy(quad_list[quad_count].result, (parts[3] && strcmp(parts[3], "-") != 0) ? parts[3] : "", MAX_STR - 1);
+            quad_list[quad_count].result[MAX_STR - 1] = '\0';
+
+            quad_list[quad_count].eliminated = false;
+            quad_list[quad_count].is_leader = false;
+            quad_count++;
+        } else {
+             fprintf(stderr, "Warning: Skipping malformed quad line (empty?): %s\n", line);
+        }
+    }
+
+    fclose(fp);
+    printf("Read %d quads.\n", quad_count);
+    return true;
+}
+
+void printQuads(const char* title, bool show_eliminated) {
+    printf("\n--- %s ---\n", title);
+    printf("Nr | %-15s | %-25s | %-25s | %-25s | %s\n", "Op", "Arg1", "Arg2", "Result", show_eliminated ? "Status" : "");
+    printf("---|-----------------|---------------------------|---------------------------|---------------------------|--------\n");
+    if (quad_count == 0) {
+        printf("(No Quads)\n");
+    }
+    int displayed_count = 0;
+    for (int i = 0; i < quad_count; i++) {
+        if (!quad_list[i].eliminated || show_eliminated) {
+            displayed_count++;
+             printf("%03d| %-15s | %-25s | %-25s | %-25s | %s\n", i + 1,
+                   quad_list[i].op, quad_list[i].arg1, quad_list[i].arg2, quad_list[i].result,
+                   show_eliminated ? (quad_list[i].eliminated ? "(Elim)" : "") : "");
+        }
+    }
+    if (displayed_count == 0 && !show_eliminated) {
+         printf("(No quads remaining after optimization)\n");
+    }
+    printf("-----------------------------------------------------------------------------------------------\n");
+}
+
+
+
+void identifyBasicBlocks() {
+    if (quad_count == 0) return;
+
+ 
+    block_count = 0;
+
+ 
+    quad_list[0].is_leader = true;
+
+   
+
+    int current_block_start = -1;
+    for (int i = 0; i < quad_count; i++) {
+        if (quad_list[i].is_leader) {
+            // End the previous block if one was started
+            if (current_block_start != -1 && block_count > 0) {
+                blocks[block_count - 1].end_quad = i - 1;
+            }
+            // Start a new block
+            if (block_count < MAX_BLOCKS) {
+                blocks[block_count].start_quad = i;
+                blocks[block_count].num_successors = 0; // Initialize successors
+                current_block_start = i;
+                block_count++;
+            } else {
+                fprintf(stderr, "Error: Maximum number of basic blocks exceeded.\n");
+                return;
+            }
+        }
+    }
+
+    if (block_count > 0) {
+        blocks[block_count - 1].end_quad = quad_count - 1;
+    }
+     printf("Found %d basic block(s).\n", block_count);
+}
+
+void printBasicBlocks() {
+    printf("\n--- Basic Blocks ---\n");
+    for(int i=0; i<block_count; ++i) {
+        printf("Block B%d: Quads %d to %d\n", i, blocks[i].start_quad + 1, blocks[i].end_quad + 1);
+    
+        for (int q = blocks[i].start_quad; q <= blocks[i].end_quad; ++q) {
+             printf("  %03d| %s %s %s %s\n", q + 1,
+                   quad_list[q].op, quad_list[q].arg1, quad_list[q].arg2, quad_list[q].result);
+        }
+    }
+     printf("---------------------\n");
+}
+
+void printControlFlowGraph() {
+     printf("\n--- Control Flow Graph (Simplified) ---\n");
+
+     if (block_count == 0) {
+         printf("(No blocks)\n");
+     }
+     for(int i=0; i<block_count; ++i) {
+        printf("Block B%d:", i);
+
+        if (i + 1 < block_count) { 
+             printf(" -> B%d (sequential)", i + 1);
+     
+        } else {
+             printf(" -> END"); // Last block exits
+        }
+        printf("\n");
+     }
+      printf("---------------------------------------\n");
+}
+
+
+void commonSubexpressionElimination() {
+    printf("\nPerforming Common Subexpression Elimination...\n");
+    bool eliminated_found = false;
+    for (int i = 0; i < quad_count; i++) {
+        if (quad_list[i].eliminated) continue;
+
+        // Skip assignment operations
+        if (strcmp(quad_list[i].op, "=") == 0) continue;
+
+        for (int j = 0; j < i; j++) {
+            if (quad_list[j].eliminated) continue;
+            if (strcmp(quad_list[j].op, "=") == 0) continue;
+
+            if (strcmp(quad_list[i].op, quad_list[j].op) == 0 &&
+                strcmp(quad_list[i].arg1, quad_list[j].arg1) == 0 &&
+                strcmp(quad_list[i].arg2, quad_list[j].arg2) == 0)
+            {
+                printf("  Found potential CSE: Quad %d (%s %s %s %s) same as Quad %d (%s %s %s %s)\n",
+                       i + 1, quad_list[i].op, quad_list[i].arg1, quad_list[i].arg2, quad_list[i].result,
+                       j + 1, quad_list[j].op, quad_list[j].arg1, quad_list[j].arg2, quad_list[j].result);
+                printf("    Eliminating Quad %d. Uses of '%s' should be replaced by '%s'\n",
+                       i + 1, quad_list[i].result, quad_list[j].result);
+
+                quad_list[i].eliminated = true;
+                eliminated_found = true;
+                break;
+            }
+        }
+    }
+    if (!eliminated_found) printf("  No common subexpressions identified for elimination.\n");
+    printf("----------------------------------------\n");
+}
+
+
+
+bool isConstant(const char *s) {
+    if(s == NULL || *s == '\0' || strcmp(s, "") == 0) return false;
+    int i = 0;
+    if(s[0]=='-' || s[0]=='+') { if (s[1] == '\0') return false; i++; }
+    for(; s[i] != '\0'; i++) if(!isdigit(s[i])) return false;
+    return i > 0 && s[i-1] != '-' && s[i-1] != '+'; 
+}
+int evaluateExpression(const char *op, int c1, int c2) {
+    if(strcmp(op, "+") == 0) return c1 + c2;
+    if(strcmp(op, "-") == 0) return c1 - c2;
+    if(strcmp(op, "*") == 0) return c1 * c2;
+    if(strcmp(op, "/") == 0) { if (c2 == 0) return 0; return c1 / c2; } // Basic div zero check
+    return 0;
+}
+
+
+void constantFoldingOptimization() {
+    printf("\nPerforming Constant Folding...\n");
+
+    bool changed = false;
+    char buffer[MAX_STR];
+    char orig_arg1[MAX_STR], orig_arg2[MAX_STR], orig_op[20];
+
+    for (int i = 0; i < quad_count; i++) {
+        strcpy(orig_arg1, quad_list[i].arg1); strcpy(orig_arg2, quad_list[i].arg2); strcpy(orig_op, quad_list[i].op);
+
+        if ((strcmp(quad_list[i].op, "+") == 0 || strcmp(quad_list[i].op, "-") == 0 ||
+             strcmp(quad_list[i].op, "*") == 0 || strcmp(quad_list[i].op, "/") == 0) &&
+            isConstant(quad_list[i].arg1) && isConstant(quad_list[i].arg2))
+        {
+            int c1 = atoi(quad_list[i].arg1); int c2 = atoi(quad_list[i].arg2);
+            if (strcmp(quad_list[i].op, "/") == 0 && c2 == 0) { /* handle error */ continue; }
+            int result_val = evaluateExpression(quad_list[i].op, c1, c2);
+            sprintf(buffer, "%d", result_val);
+            printf("  Folding Quad %d (%s = %s %s %s) -> (%s = %s)\n", i + 1,
+                   quad_list[i].result, orig_arg1, orig_op, orig_arg2, quad_list[i].result, buffer);
+            strcpy(quad_list[i].op, "="); strcpy(quad_list[i].arg1, buffer); quad_list[i].arg2[0] = '\0';
+            changed = true;
+        }
+    }
+    if (!changed) printf("  No constant folding opportunities found (expected for this IR).\n");
+    printf("----------------------------------------\n");
+}
+
+void constantPropagationOptimization() {
+     printf("\nPerforming Constant Propagation (and Folding)...\n");
+  
+     bool changed_prop = false;
+     bool changed_fold = false;
+
+     for (int i = 0; i < quad_count; i++) {
+      
+         if (strcmp(quad_list[i].op, "=") == 0 && isConstant(quad_list[i].arg1) && quad_list[i].arg2[0] == '\0') {
+             char* var_to_prop = quad_list[i].result;
+             char* const_val = quad_list[i].arg1;
+             if (strlen(var_to_prop) == 0) continue; // Cannot propagate if result is empty
+
+             for (int j = i + 1; j < quad_count; j++) {
+                 bool propagated_here = false;
+                 // Propagate into arg1 of arithmetic ops
+                 if ((strcmp(quad_list[j].op, "+") == 0 || strcmp(quad_list[j].op, "-") == 0 ||
+                      strcmp(quad_list[j].op, "*") == 0 || strcmp(quad_list[j].op, "/") == 0) &&
+                     strcmp(quad_list[j].arg1, var_to_prop) == 0)
+                 {
+                     strcpy(quad_list[j].arg1, const_val); propagated_here = true;
+                 }
+                 // Propagate into arg2 of arithmetic ops
+                 if ((strcmp(quad_list[j].op, "+") == 0 || strcmp(quad_list[j].op, "-") == 0 ||
+                      strcmp(quad_list[j].op, "*") == 0 || strcmp(quad_list[j].op, "/") == 0) &&
+                      strcmp(quad_list[j].arg2, var_to_prop) == 0)
+                 {
+                     strcpy(quad_list[j].arg2, const_val); propagated_here = true;
+                 }
+                  
+                 if (propagated_here) {
+                     printf("  Propagated '%s = %s' from Quad %d into Quad %d\n", var_to_prop, const_val, i + 1, j + 1);
+                      changed_prop = true;
+                 }
+             }
+         }
+     }
+      if (!changed_prop) printf("  No constant propagation opportunities found (expected for this IR).\n");
+
+ 
+     printf("  Running follow-up Constant Folding...\n");
+
+     char buffer[MAX_STR]; char orig_arg1[MAX_STR], orig_arg2[MAX_STR], orig_op[20];
+     for (int i = 0; i < quad_count; i++) {
+         strcpy(orig_arg1, quad_list[i].arg1); strcpy(orig_arg2, quad_list[i].arg2); strcpy(orig_op, quad_list[i].op);
+         if ((strcmp(quad_list[i].op, "+") == 0 || strcmp(quad_list[i].op, "-") == 0 ||
+              strcmp(quad_list[i].op, "*") == 0 || strcmp(quad_list[i].op, "/") == 0) &&
+             isConstant(quad_list[i].arg1) && isConstant(quad_list[i].arg2)) {
+             int c1 = atoi(quad_list[i].arg1); int c2 = atoi(quad_list[i].arg2);
+             if (strcmp(quad_list[i].op, "/") == 0 && c2 == 0) { continue; }
+             int result_val = evaluateExpression(quad_list[i].op, c1, c2); sprintf(buffer, "%d", result_val);
+             printf("    Folding Quad %d (%s = %s %s %s) -> (%s = %s)\n", i + 1, quad_list[i].result, orig_arg1, orig_op, orig_arg2, quad_list[i].result, buffer);
+             strcpy(quad_list[i].op, "="); strcpy(quad_list[i].arg1, buffer); quad_list[i].arg2[0] = '\0';
+             changed_fold = true;
+         }
+     }
+     if (!changed_fold) printf("    No further folding opportunities found.\n");
+     printf("----------------------------------------\n");
+}
+
+void deadCodeElimination() {
+    printf("\nPerforming Dead Code Elimination...\n");
+    bool changed = false;
+    // Mark all variables as not used
+    bool used[MAX_QUADS] = {false};
+    // Mark variables that are used as arguments in non-eliminated quads
+    for (int i = 0; i < quad_count; i++) {
+        if (quad_list[i].eliminated) continue;
+        if (strlen(quad_list[i].arg1) > 0) {
+            for (int j = 0; j < quad_count; j++) {
+                if (strcmp(quad_list[j].result, quad_list[i].arg1) == 0) used[j] = true;
+            }
+        }
+        if (strlen(quad_list[i].arg2) > 0) {
+            for (int j = 0; j < quad_count; j++) {
+                if (strcmp(quad_list[j].result, quad_list[i].arg2) == 0) used[j] = true;
+            }
+        }
+    }
+    // Eliminate assignments whose result is never used
+    for (int i = 0; i < quad_count; i++) {
+        if (quad_list[i].eliminated) continue;
+        if (strlen(quad_list[i].result) > 0 && !used[i]) {
+            quad_list[i].eliminated = true;
+            changed = true;
+            printf("  Eliminated dead code at Quad %d (%s %s %s %s)\n", i+1, quad_list[i].op, quad_list[i].arg1, quad_list[i].arg2, quad_list[i].result);
+        }
+    }
+    if (!changed) printf("  No dead code found.\n");
+    printf("----------------------------------------\n");
+}
+
+void copyPropagation() {
+    printf("\nPerforming Copy Propagation...\n");
+    bool changed = false;
+    for (int i = 0; i < quad_count; i++) {
+        if (quad_list[i].eliminated) continue;
+        if (strcmp(quad_list[i].op, "=") == 0 && strlen(quad_list[i].arg1) > 0 && strlen(quad_list[i].arg2) == 0) {
+            char* src = quad_list[i].arg1;
+            char* dest = quad_list[i].result;
+            for (int j = i + 1; j < quad_count; j++) {
+                if (quad_list[j].eliminated) continue;
+                if (strcmp(quad_list[j].arg1, dest) == 0) {
+                    strcpy(quad_list[j].arg1, src);
+                    changed = true;
+                    printf("  Propagated copy from Quad %d to Quad %d (arg1)\n", i+1, j+1);
+                }
+                if (strcmp(quad_list[j].arg2, dest) == 0) {
+                    strcpy(quad_list[j].arg2, src);
+                    changed = true;
+                    printf("  Propagated copy from Quad %d to Quad %d (arg2)\n", i+1, j+1);
+                }
+            }
+        }
+    }
+    if (!changed) printf("  No copy propagation opportunities found.\n");
+    printf("----------------------------------------\n");
+}
+
+int main(int argc, char *argv[]) {
+    const char* quad_filename = "input";
+
+    if (argc > 1) {
+        quad_filename = argv[1]; 
+    }
+
+    printf("--- Quadruple Optimizer ---\n");
+
+    if (!readQuadsFromFile(quad_filename)) {
+        fprintf(stderr, "Failed to read quadruples from %s. Exiting.\n", quad_filename);
+        return 1;
+    }
+    printQuads("Initial Quads Loaded", false);
+
+    int option = 0;
+    while (option < 1 || option > 5) {
+        printf("\nSelect optimization technique:\n");
+        printf("  1. Common Subexpression Elimination (CSE)\n");
+        printf("  2. Constant Folding\n");
+        printf("  3. Constant Propagation (includes Folding)\n");
+        printf("  4. Dead Code Elimination\n");
+        printf("  5. Copy Propagation\n");
+        printf("Enter your choice (1-5): ");
+        if (scanf("%d", &option) != 1 || option < 1 || option > 5) {
+            printf("Invalid choice. Please enter 1, 2, 3, 4, or 5.\n");
+            while (getchar() != '\n');
+            option = 0;
+        }
+    }
+
+    switch(option) {
+        case 1:
+            commonSubexpressionElimination();
+            break;
+        case 2:
+            constantFoldingOptimization();
+            break;
+        case 3:
+            constantPropagationOptimization();
+            break;
+        case 4:
+            deadCodeElimination();
+            break;
+        case 5:
+            copyPropagation();
+            break;
+    }
+
+    printQuads("Optimized Quadruples", false);
+    return 0;
+}
+
+
+
+
+
+
+
+
